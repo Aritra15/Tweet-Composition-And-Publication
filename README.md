@@ -1,3 +1,7 @@
+# Progress(Will be removed at the end of project):
+-> Frontend:React,Backend: FastAPI, database: Supabase
+-> Database setup done
+
 # CSE-326 Project
 
 This project implements the Tweet Composition and Publication module.
