@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "google/gemma-3-4b"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
