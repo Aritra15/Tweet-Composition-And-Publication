@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Feather, ArrowLeft, Home } from 'lucide-react';
+import { Feather, ArrowLeft } from 'lucide-react';
 import { Avatar } from '../components/Shared';
 import { ScreenName } from '../types';
 import Feed from '../components/Feed';

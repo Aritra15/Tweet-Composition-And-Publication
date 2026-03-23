@@ -17,7 +17,7 @@
 | **AI** | | |
 | GET | `/ai/health-gemma` | Health check |
 | POST | `/ai/enhance-text` | Enhance text |
-| POST | `/ai/enhance-image-prompt` | Enhance image prompt |
+| POST | `/ai/suggest-hashtags` | Suggest hashtags |
 | POST | `/ai/generate-image` | Generate AI image |
 
 ---
@@ -88,33 +88,33 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-text" \
 
 ---
 
-### 3. Enhance Image Prompt
+### 3. Suggest Hashtags
 
-**Endpoint:** `POST /enhance-image-prompt`
+**Endpoint:** `POST /suggest-hashtags`
 
-**URL:** `http://localhost:8000/api/v1/ai/enhance-image-prompt`
+**URL:** `http://localhost:8000/api/v1/ai/suggest-hashtags`
 
-**Description:** Enhance image generation prompts by adding details about composition, lighting, style, and quality markers.
+**Description:** Suggest up to 7 relevant hashtags for the provided tweet text.
 
 **Request Body:**
 ```json
 {
-  "prompt": "your basic image prompt"
+  "text": "your tweet text"
 }
 ```
 
 **Response:**
 ```json
 {
-  "enhanced": "Your detailed enhanced prompt with composition, lighting, and style details"
+  "hashtags": ["#AI", "#Tech", "#WebDev"]
 }
 ```
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
+curl -X POST "http://localhost:8000/api/v1/ai/suggest-hashtags" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "a cat sitting on a chair"}'
+  -d '{"text": "Building a tweet composer with AI tools"}'
 ```
 
 ---
@@ -125,32 +125,19 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
 
 **URL:** `http://localhost:8000/api/v1/ai/generate-image`
 
-**Description:** Generate an image using the Flux 2 Klein 4B model from OpenRouter. Optionally enhance the prompt before generation. The image is returned as base64 data for frontend storage and display.
+**Description:** Generate an image using the Flux 2 Klein 4B model from OpenRouter. The backend automatically enhances the prompt before generation, and returns image data suitable for frontend storage and display.
 
 **Request Body:**
 ```json
 {
-  "prompt": "your image generation prompt",
-  "enhance_prompt": false
+  "prompt": "your image generation prompt"
 }
 ```
 
 **Parameters:**
 - `prompt` (string, required): The image generation prompt
-- `enhance_prompt` (boolean, optional, default: false): If true, the prompt will be enhanced before image generation
 
-**Response (without enhancement):**
-```json
-{
-  "filename": "generated_20260323_123456_789012.png",
-  "image_data": "iVBORw0KGgoAAAANSUhEUgAA...",
-  "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-  "prompt": "your image generation prompt",
-  "original_prompt": null
-}
-```
-
-**Response (with enhancement):**
+**Response:**
 ```json
 {
   "filename": "generated_20260323_123456_789012.png",
@@ -165,21 +152,14 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
 - `filename`: Suggested filename for the generated image (timestamp-based)
 - `image_data`: Base64-encoded image data (without data URL prefix)
 - `image_url`: Complete data URL that can be directly used in `<img>` tags or Canvas API
-- `prompt`: The actual prompt used for generation (enhanced if requested)
-- `original_prompt`: The original prompt before enhancement (only present when `enhance_prompt` is true)
+- `prompt`: The enhanced prompt used for generation
+- `original_prompt`: The original prompt before enhancement
 
-**Example (without enhancement):**
+**Example:**
 ```bash
 curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "a beautiful sunset over mountains"}'
-```
-
-**Example (with enhancement):**
-```bash
-curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "a cat", "enhance_prompt": true}'
 ```
 
 **Frontend Integration Guide:**
@@ -236,8 +216,8 @@ curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
 - Images are returned as base64-encoded PNG data
 - No backend storage required - handle storage on the frontend
 - Timeout: 120 seconds
-- The `prompt` field in the response contains the actual prompt used for generation (enhanced if `enhance_prompt` was true)
-- The `original_prompt` field will only be present when `enhance_prompt` is true
+- The `prompt` field in the response contains the enhanced prompt used for generation
+- The `original_prompt` field contains the original input prompt
 - Recommended to use IndexedDB for storing images in the browser to avoid localStorage size limitations
 
 ---

@@ -1,7 +1,6 @@
-import React from 'react';
-import { X, Home, type LucideIcon, MessageCircle, Repeat, Heart, Share } from 'lucide-react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
+import { type LucideIcon, MessageCircle, Repeat, Heart, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScreenName } from '../types';
 
 // --- Colors ---
 // Using Tailwind classes defined in index.html config:
@@ -25,7 +24,7 @@ export const Button = ({
   icon?: LucideIcon;
 }) => {
   const baseStyles = "rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.97]";
-  
+
   const variants = {
     primary: "bg-app-peach text-app-bg hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-app-peach/10",
     secondary: "bg-transparent border border-app-lavender text-app-lavender hover:bg-app-lavender/10 disabled:opacity-50",
@@ -115,11 +114,10 @@ export const Chip: React.FC<{ label: string; active?: boolean; icon?: LucideIcon
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 transition-colors ${
-        active
+      className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 transition-colors ${active
           ? 'bg-app-peach text-app-bg'
           : 'border border-app-border text-app-muted hover:border-app-lavender hover:text-app-text'
-      }`}
+        }`}
     >
       {Icon && <Icon size={14} />}
       {label}
@@ -128,9 +126,8 @@ export const Chip: React.FC<{ label: string; active?: boolean; icon?: LucideIcon
 };
 
 export const Toast = ({ message, type = 'success' }: { message: string; type?: 'success' | 'error' }) => (
-  <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl backdrop-blur-md shadow-2xl z-50 flex items-center gap-3 animate-fade-in-up ${
-    type === 'success' ? 'bg-app-elevated/90 border border-app-lime/30 text-app-lime' : 'bg-app-elevated/90 border border-app-error/30 text-app-error'
-  }`}>
+  <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl backdrop-blur-md shadow-2xl z-50 flex items-center gap-3 animate-fade-in-up ${type === 'success' ? 'bg-app-elevated/90 border border-app-lime/30 text-app-lime' : 'bg-app-elevated/90 border border-app-error/30 text-app-error'
+    }`}>
     <div className={`w-2 h-2 rounded-full ${type === 'success' ? 'bg-app-lime' : 'bg-app-error'}`} />
     <span className="text-app-text font-medium">{message}</span>
   </div>
@@ -138,7 +135,7 @@ export const Toast = ({ message, type = 'success' }: { message: string; type?: '
 
 export const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) => {
   return (
-    <button 
+    <button
       aria-label="Close"
       onClick={() => onChange(!checked)}
       className={`w-12 h-7 rounded-full relative transition-colors duration-200 ${checked ? 'bg-app-peach' : 'bg-app-border'}`}
@@ -148,17 +145,72 @@ export const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (che
   );
 };
 
-export const BottomSheet = ({ 
-  isOpen, 
-  onClose, 
-  children, 
-  title 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  children?: React.ReactNode; 
-  title?: string;
+export const BottomSheet = ({
+  isOpen,
+  onOpen,
+  onClose,
+  onCancel,
+  anchorRef,
+  floating = false,
+  panelClassName = '',
+  children,
+  title
+}: {
+  isOpen: boolean;
+  onOpen?: () => void;
+  onClose: () => void;
+  onCancel?: () => void;
+  anchorRef?: React.RefObject<HTMLElement | null>;
+  floating?: boolean;
+  panelClassName?: string;
+  children?: React.ReactNode;
+  title: string;
 }) => {
+  const [position, setPosition] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !floating) return;
+
+    const computePosition = () => {
+      if (!anchorRef?.current) {
+        setPosition(null);
+        return;
+      }
+
+      const rect = anchorRef.current.getBoundingClientRect();
+      const panelWidth = 360;
+      const viewportPadding = 12;
+      const availableHeight = Math.max(window.innerHeight - viewportPadding * 2, 280);
+      const maxHeight = Math.min(availableHeight, 520);
+
+      let left = rect.left + (rect.width / 2) - (panelWidth / 2);
+      left = Math.max(viewportPadding, left);
+      left = Math.min(window.innerWidth - panelWidth - viewportPadding, left);
+
+      const preferTop = rect.top - maxHeight - 12;
+      const top = preferTop >= viewportPadding
+        ? preferTop
+        : Math.min(rect.bottom + 12, window.innerHeight - maxHeight - viewportPadding);
+
+      setPosition({ top, left, maxHeight });
+    };
+
+    computePosition();
+    window.addEventListener('resize', computePosition);
+    window.addEventListener('scroll', computePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', computePosition);
+      window.removeEventListener('scroll', computePosition, true);
+    };
+  }, [isOpen, floating, anchorRef]);
+
+  useEffect(() => {
+    if (isOpen) {
+      onOpen?.();
+    }
+  }, [isOpen, onOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -167,26 +219,37 @@ export const BottomSheet = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-[60]"
-            onClick={onClose}
+            className={`fixed inset-0 z-[60] ${floating ? 'bg-black/25 backdrop-blur-[1px]' : 'bg-black/60'}`}
+            onClick={onCancel ? onCancel : onClose}
           />
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
+            initial={floating ? { opacity: 0, scale: 0.94, y: 8 } : { y: '100%' }}
+            animate={floating ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
+            exit={floating ? { opacity: 0, scale: 0.94, y: 8 } : { y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 bg-app-elevated rounded-t-3xl z-[70] max-h-[85vh] overflow-y-auto border-t border-app-border/50 shadow-2xl"
+            style={floating ? {
+              top: position?.top ?? 80,
+              left: position?.left ?? 12,
+              width: 'min(360px, calc(100vw - 24px))',
+              maxHeight: position?.maxHeight ?? 520,
+            } : undefined}
+            className={`fixed z-[70] overflow-y-auto border border-app-border/60 shadow-2xl ${floating
+              ? 'bg-app-elevated rounded-2xl'
+              : 'bottom-0 left-0 right-0 bg-app-elevated rounded-t-3xl max-h-[85vh] border-t border-app-border/50'} ${panelClassName}`}
           >
-            <div className="sticky top-0 bg-app-elevated/95 backdrop-blur z-10 px-6 pt-4 pb-2 flex items-center justify-between border-b border-app-border/30">
-               <div className="w-12" /> {/* Spacer */}
-               {/* Handle bar */}
-               <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-app-border" />
-               <h3 className="text-lg font-bold text-app-text mt-2">{title}</h3>
-               <button aria-label="Close" onClick={onClose} className="p-2 -mr-2 text-app-muted hover:text-app-text">
-                 <X size={20} />
-               </button>
+            <div className={`sticky top-0 bg-app-elevated/95 backdrop-blur z-10 px-5 pt-3 pb-2 flex items-center justify-between border-b border-app-border/30 ${floating ? 'rounded-t-2xl' : ''}`}>
+              <div className="w-12" />
+              {/* Handle bar */}
+              {!floating && <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-app-border" />}
+              <h3 className={`text-lg font-bold text-app-text ${floating ? '' : 'mt-2'}`}>{title}</h3>
+              <button
+                onClick={onClose}
+                className="px-3 py-1.5 -mr-2 text-sm font-semibold text-app-peach hover:text-app-text"
+              >
+                Done
+              </button>
             </div>
-            <div className="p-6 pt-2 pb-10">
+            <div className={`${floating ? 'p-4 pt-2 pb-5' : 'p-6 pt-2 pb-10'}`}>
               {children}
             </div>
           </motion.div>

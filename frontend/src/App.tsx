@@ -15,7 +15,7 @@ const MOCK_USER = {
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>(ScreenName.HOME);
-  const [draftThread, setDraftThread] = useState<Thread | null>(null);
+  const [, setDraftThread] = useState<Thread | null>(null);
 
   const navigate = (screen: ScreenName) => setCurrentScreen(screen);
 

@@ -1,4 +1,5 @@
 import httpx
+import re
 from datetime import datetime
 from app.core.config import settings
 
@@ -21,7 +22,18 @@ Return ONLY the enhanced text without any explanations, comments, or additional 
 - Clarifying ambiguous descriptions
 - Maintaining the core concept while making it more specific
 
-Return ONLY the enhanced prompt without any explanations or comments."""
+    Return ONLY the enhanced prompt without any explanations or comments.""",
+
+        "hashtag_suggestion": """You are a social media assistant.
+    Given tweet text, suggest up to 7 relevant hashtags.
+
+    Rules:
+    - Return hashtags only.
+    - Each hashtag must start with #.
+    - Keep hashtags concise and topical.
+    - Do not include duplicates.
+    - Do not include explanation or numbering.
+    - Return plain text as a comma-separated list, e.g. #AI, #TechNews, #Startups"""
     }
 
     async def _call_api(self, system_prompt: str, user_message: str) -> str:
@@ -122,6 +134,37 @@ Return ONLY the enhanced prompt without any explanations or comments."""
                 "image_url": f"{base64_prefix},{image_data}" if base64_prefix else f"data:image/png;base64,{image_data}",
                 "prompt": prompt
             }
+
+    async def suggest_hashtags(self, text: str) -> list[str]:
+        if not text.strip():
+            return []
+
+        raw = await self._call_api(
+            self.PROMPTS["hashtag_suggestion"],
+            text
+        )
+
+        tags = re.findall(r"#\w+", raw)
+
+        # Fallback: if model forgot # prefixes, extract comma/newline-separated tokens.
+        if not tags:
+            fallback = re.split(r"[,\n]", raw)
+            tags = [f"#{token.strip().lstrip('#').replace(' ', '')}" for token in fallback if token.strip()]
+
+        cleaned: list[str] = []
+        seen: set[str] = set()
+
+        for tag in tags:
+            normalized = f"#{tag[1:]}"
+            key = normalized.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(normalized)
+            if len(cleaned) == 7:
+                break
+
+        return cleaned
 
     async def health_check(self) -> dict[str, str]:
         try:

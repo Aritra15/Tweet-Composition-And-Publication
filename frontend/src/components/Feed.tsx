@@ -33,28 +33,13 @@ const Feed: React.FC<FeedProps> = ({tweetItems, handleOpenThread}) => {
                           </p>
 
                           {tweet.media.length > 0 && (
-                            <div
-                              className={`mb-3 overflow-hidden border border-app-border rounded-2xl grid gap-1 ${
-                                tweet.media.length === 1
-                                  ? "grid-cols-1"
-                                  : tweet.media.length === 2
-                                  ? "grid-cols-2"
-                                  : "grid-cols-2"
-                              }`}
-                            >
+                            <div className="mb-3 overflow-x-auto flex gap-2 py-1">
                               {tweet.media.map((url: string, idx: number) => (
-                                <div
-                                  key={idx}
-                                  className={`relative ${
-                                    tweet.media.length === 3 && idx === 0
-                                      ? "col-span-2"
-                                      : ""
-                                  }`}
-                                >
+                                <div key={idx} className="flex-shrink-0 w-64 h-64 rounded-2xl overflow-hidden border border-app-border">
                                   <img
                                     src={url}
                                     alt={`Tweet media ${idx + 1}`}
-                                    className="w-full h-full object-cover max-h-[300px]"
+                                    className="w-full h-full object-cover"
                                   />
                                 </div>
                               ))}
@@ -99,28 +84,13 @@ const Feed: React.FC<FeedProps> = ({tweetItems, handleOpenThread}) => {
                   </p>
 
                   {tweet.media.length > 0 && (
-                    <div
-                      className={`mb-3 overflow-hidden border border-app-border rounded-2xl grid gap-1 ${
-                        tweet.media.length === 1
-                          ? "grid-cols-1"
-                          : tweet.media.length === 2
-                          ? "grid-cols-2"
-                          : "grid-cols-2"
-                      }`}
-                    >
+                    <div className="mb-3 overflow-x-auto flex gap-2 py-1">
                       {tweet.media.map((url: string, idx: number) => (
-                        <div
-                          key={idx}
-                          className={`relative ${
-                            tweet.media.length === 3 && idx === 0
-                              ? "col-span-2"
-                              : ""
-                          }`}
-                        >
+                        <div key={idx} className="flex-shrink-0 h-[160px] rounded-xl overflow-hidden border border-app-border">
                           <img
                             src={url}
                             alt={`Tweet media ${idx + 1}`}
-                            className="w-full h-full object-cover max-h-[300px]"
+                            className="w-full h-full object-cover"
                           />
                         </div>
                       ))}

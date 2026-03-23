@@ -11,17 +11,20 @@ class TextEnhanceRequest(BaseModel):
     text: str
 
 
-class ImagePromptEnhanceRequest(BaseModel):
-    prompt: str
-
-
 class EnhanceResponse(BaseModel):
     enhanced: str
 
 
+class HashtagSuggestRequest(BaseModel):
+    text: str
+
+
+class HashtagSuggestResponse(BaseModel):
+    hashtags: list[str]
+
+
 class ImageGenerateRequest(BaseModel):
     prompt: str
-    enhance_prompt: bool = False
 
 
 class ImageGenerateResponse(BaseModel):
@@ -41,29 +44,23 @@ async def enhance_text(request: TextEnhanceRequest) -> EnhanceResponse:
         raise HTTPException(status_code=500, detail=f"Error enhancing text: {str(e)}")
 
 
-@router.post("/enhance-image-prompt", response_model=EnhanceResponse)
-async def enhance_image_prompt(request: ImagePromptEnhanceRequest) -> EnhanceResponse:
+@router.post("/suggest-hashtags", response_model=HashtagSuggestResponse)
+async def suggest_hashtags(request: HashtagSuggestRequest) -> HashtagSuggestResponse:
     try:
-        enhanced_prompt = await ai_service.enhance_image_prompt(request.prompt)
-        return EnhanceResponse(enhanced=enhanced_prompt)
+        hashtags = await ai_service.suggest_hashtags(request.text)
+        return HashtagSuggestResponse(hashtags=hashtags)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error enhancing image prompt: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error suggesting hashtags: {str(e)}")
 
 
 @router.post("/generate-image", response_model=ImageGenerateResponse)
 async def generate_image(request: ImageGenerateRequest) -> ImageGenerateResponse:
     try:
-        prompt_to_use = request.prompt
-        original_prompt = None
-
-        if request.enhance_prompt:
-            original_prompt = request.prompt
-            prompt_to_use = await ai_service.enhance_image_prompt(request.prompt)
+        original_prompt = request.prompt
+        prompt_to_use = await ai_service.enhance_image_prompt(request.prompt)
 
         result = await ai_service.generate_image(prompt_to_use)
-
-        if original_prompt:
-            result["original_prompt"] = original_prompt
+        result["original_prompt"] = original_prompt
 
         return ImageGenerateResponse(**result)
     except Exception as e:
