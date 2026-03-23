@@ -1,6 +1,4 @@
 import httpx
-import base64
-from pathlib import Path
 from datetime import datetime
 from app.core.config import settings
 
@@ -108,26 +106,20 @@ Return ONLY the enhanced prompt without any explanations or comments."""
             image_data = message["images"][0]["image_url"]["url"]
 
             # Parse base64 data URL (format: data:image/png;base64,...)
+            base64_prefix = ""
             if image_data.startswith("data:"):
-                image_data = image_data.split(",", 1)[1]
+                parts = image_data.split(",", 1)
+                base64_prefix = parts[0]  # e.g., "data:image/png;base64"
+                image_data = parts[1]
 
-            # Decode base64 and save
-            image_bytes = base64.b64decode(image_data)
-
-            # Generate unique filename with timestamp
+            # Generate unique filename with timestamp for reference
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             filename = f"generated_{timestamp}.png"
 
-            # Save to ai-images-storage folder
-            storage_path = Path(__file__).parent.parent.parent / "ai-images-storage"
-            storage_path.mkdir(exist_ok=True)
-            file_path = storage_path / filename
-
-            file_path.write_bytes(image_bytes)
-
             return {
                 "filename": filename,
-                "file_path": str(file_path),
+                "image_data": image_data,
+                "image_url": f"{base64_prefix},{image_data}" if base64_prefix else f"data:image/png;base64,{image_data}",
                 "prompt": prompt
             }
 

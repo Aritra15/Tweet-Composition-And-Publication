@@ -101,7 +101,7 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
 
 **URL:** `http://localhost:8000/api/v1/ai/generate-image`
 
-**Description:** Generate an image using the Flux 2 Klein 4B model from OpenRouter. Optionally enhance the prompt before generation.
+**Description:** Generate an image using the Flux 2 Klein 4B model from OpenRouter. Optionally enhance the prompt before generation. The image is returned as base64 data for frontend storage and display.
 
 **Request Body:**
 ```json
@@ -119,7 +119,8 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
 ```json
 {
   "filename": "generated_20260323_123456_789012.png",
-  "file_path": "/path/to/backend/ai-images-storage/generated_20260323_123456_789012.png",
+  "image_data": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
   "prompt": "your image generation prompt",
   "original_prompt": null
 }
@@ -129,11 +130,19 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
 ```json
 {
   "filename": "generated_20260323_123456_789012.png",
-  "file_path": "/path/to/backend/ai-images-storage/generated_20260323_123456_789012.png",
+  "image_data": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
   "prompt": "Enhanced detailed prompt used for generation",
   "original_prompt": "your original simple prompt"
 }
 ```
+
+**Response Fields:**
+- `filename`: Suggested filename for the generated image (timestamp-based)
+- `image_data`: Base64-encoded image data (without data URL prefix)
+- `image_url`: Complete data URL that can be directly used in `<img>` tags or Canvas API
+- `prompt`: The actual prompt used for generation (enhanced if requested)
+- `original_prompt`: The original prompt before enhancement (only present when `enhance_prompt` is true)
 
 **Example (without enhancement):**
 ```bash
@@ -149,9 +158,60 @@ curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
   -d '{"prompt": "a cat", "enhance_prompt": true}'
 ```
 
+**Frontend Integration Guide:**
+
+1. **Display Preview in UI:**
+   ```javascript
+   // Use the image_url directly in an img tag
+   const imageElement = document.createElement('img');
+   imageElement.src = response.image_url;
+   ```
+
+2. **Store in Browser Storage:**
+   ```javascript
+   // Option 1: localStorage (for smaller images, < 5MB)
+   localStorage.setItem(`image_${response.filename}`, response.image_data);
+
+   // Option 2: IndexedDB (recommended for larger images)
+   const db = await openDB('images-db', 1, {
+     upgrade(db) {
+       db.createObjectStore('images');
+     }
+   });
+   await db.put('images', {
+     filename: response.filename,
+     data: response.image_data,
+     url: response.image_url,
+     timestamp: Date.now()
+   }, response.filename);
+   ```
+
+3. **Download Image:**
+   ```javascript
+   // Convert to blob and download
+   const blob = await fetch(response.image_url).then(r => r.blob());
+   const link = document.createElement('a');
+   link.href = URL.createObjectURL(blob);
+   link.download = response.filename;
+   link.click();
+   ```
+
+4. **Upload to Server Later (if needed):**
+   ```javascript
+   // Convert base64 to File object
+   const blob = await fetch(response.image_url).then(r => r.blob());
+   const file = new File([blob], response.filename, { type: 'image/png' });
+
+   // Upload using FormData
+   const formData = new FormData();
+   formData.append('image', file);
+   await fetch('/api/upload', { method: 'POST', body: formData });
+   ```
+
 **Notes:**
-- Generated images are saved in `backend/ai-images-storage/` directory
-- Image format: PNG
+- Images are returned as base64-encoded PNG data
+- No backend storage required - handle storage on the frontend
 - Timeout: 120 seconds
 - The `prompt` field in the response contains the actual prompt used for generation (enhanced if `enhance_prompt` was true)
 - The `original_prompt` field will only be present when `enhance_prompt` is true
+- Recommended to use IndexedDB for storing images in the browser to avoid localStorage size limitations
