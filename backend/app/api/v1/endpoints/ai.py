@@ -21,12 +21,14 @@ class EnhanceResponse(BaseModel):
 
 class ImageGenerateRequest(BaseModel):
     prompt: str
+    enhance_prompt: bool = False
 
 
 class ImageGenerateResponse(BaseModel):
     filename: str
     file_path: str
     prompt: str
+    original_prompt: str | None = None
 
 
 @router.post("/enhance-text", response_model=EnhanceResponse)
@@ -50,7 +52,18 @@ async def enhance_image_prompt(request: ImagePromptEnhanceRequest) -> EnhanceRes
 @router.post("/generate-image", response_model=ImageGenerateResponse)
 async def generate_image(request: ImageGenerateRequest) -> ImageGenerateResponse:
     try:
-        result = await ai_service.generate_image(request.prompt)
+        prompt_to_use = request.prompt
+        original_prompt = None
+
+        if request.enhance_prompt:
+            original_prompt = request.prompt
+            prompt_to_use = await ai_service.enhance_image_prompt(request.prompt)
+
+        result = await ai_service.generate_image(prompt_to_use)
+
+        if original_prompt:
+            result["original_prompt"] = original_prompt
+
         return ImageGenerateResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating image: {str(e)}")
