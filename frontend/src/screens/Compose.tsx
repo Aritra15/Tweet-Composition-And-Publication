@@ -1,13 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { X, Image, Smile, BarChart2, Globe, Plus, GripVertical, Trash2, CheckCircle, Lock, AlertTriangle, Users, Feather, Sparkles, Wand2, Hash } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
-import { type Thread, type TweetDraft, AudienceType } from '../types';
+import { type Thread, type TweetDraft, type User, AudienceType } from '../types';
 import { Avatar, Button, BottomSheet, Toggle, Chip, Input } from '../components/Shared';
 
 interface ComposeProps {
   onBack: () => void;
   onNext: (thread: Thread) => void;
-  currentUser: any;
+  currentUser: User;
 }
 
 const MAX_CHARS = 280;
@@ -124,7 +124,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-app-border bg-app-bg/95 backdrop-blur">
-        <button onClick={onBack} className="text-app-text hover:text-app-muted p-2 -ml-2">
+        <button aria-label="Close" onClick={onBack} className="text-app-text hover:text-app-muted p-2 -ml-2">
           <X size={24} />
         </button>
         <span className="font-semibold text-app-text text-lg">
@@ -181,6 +181,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                      </div>
                      {tweets.length > 1 && (
                          <button 
+                            aria-label="Close"
                             onClick={() => handleRemoveTweet(tweet.id)}
                             className="text-app-muted hover:text-app-error p-1 shrink-0 ml-2"
                          >
@@ -207,8 +208,9 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                       <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
                           {tweet.media.map(m => (
                               <div key={m.id} className="w-24 h-24 rounded-xl bg-app-elevated relative shrink-0">
-                                  <img src={m.url} className="w-full h-full object-cover rounded-xl" />
+                                  <img aria-label="Close" src={m.url} className="w-full h-full object-cover rounded-xl" />
                                   <button 
+                                    aria-label="Close"
                                     className="absolute top-1 right-1 bg-black/50 p-1 rounded-full text-white"
                                     onClick={() => {
                                         const newMedia = tweet.media.filter(media => media.id !== m.id);

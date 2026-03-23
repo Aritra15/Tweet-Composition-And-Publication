@@ -30,7 +30,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ onBack, onPublish }) => 
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-app-border shrink-0">
           <h2 className="font-bold text-app-text text-xl">Publish</h2>
-          <button onClick={onBack} className="text-app-muted hover:text-app-text p-1 rounded-full hover:bg-app-elevated">
+          <button aria-label="Close" onClick={onBack} className="text-app-muted hover:text-app-text p-1 rounded-full hover:bg-app-elevated">
             <X size={24} />
           </button>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Home, type LucideIcon } from 'lucide-react';
+import { X, Home, type LucideIcon, MessageCircle, Repeat, Heart, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScreenName } from '../types';
 
@@ -139,6 +139,7 @@ export const Toast = ({ message, type = 'success' }: { message: string; type?: '
 export const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) => {
   return (
     <button 
+      aria-label="Close"
       onClick={() => onChange(!checked)}
       className={`w-12 h-7 rounded-full relative transition-colors duration-200 ${checked ? 'bg-app-peach' : 'bg-app-border'}`}
     >
@@ -181,7 +182,7 @@ export const BottomSheet = ({
                {/* Handle bar */}
                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-app-border" />
                <h3 className="text-lg font-bold text-app-text mt-2">{title}</h3>
-               <button onClick={onClose} className="p-2 -mr-2 text-app-muted hover:text-app-text">
+               <button aria-label="Close" onClick={onClose} className="p-2 -mr-2 text-app-muted hover:text-app-text">
                  <X size={20} />
                </button>
             </div>
@@ -195,15 +196,22 @@ export const BottomSheet = ({
   );
 };
 
-export const BottomNav = ({ active, onNavigate }: { active: ScreenName, onNavigate: (screen: ScreenName) => void }) => {
-    return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-app-bg/90 backdrop-blur-lg border-t border-app-border flex items-center justify-center py-3 px-2 pb-6 z-30">
-            <button
-                onClick={() => onNavigate(ScreenName.HOME)}
-                className={`p-2 transition-colors ${active === ScreenName.HOME ? 'text-app-peach' : 'text-app-muted hover:text-app-text'}`}
-            >
-                <Home size={24} />
-            </button>
-        </nav>
-    );
-};
+export const TweetActions = ({ likes, replies, reposts }: { likes: number, replies: number, reposts: number }) => (
+  <div className="flex items-center justify-between text-app-muted max-w-md pr-4 mt-3">
+    <button className="flex items-center gap-1.5 group hover:text-app-peach transition-colors">
+      <MessageCircle size={18} className="group-hover:stroke-app-peach" />
+      <span className="text-xs">{replies}</span>
+    </button>
+    <button className="flex items-center gap-1.5 group hover:text-app-lime transition-colors">
+      <Repeat size={18} className="group-hover:stroke-app-lime" />
+      <span className="text-xs">{reposts}</span>
+    </button>
+    <button className="flex items-center gap-1.5 group hover:text-app-error transition-colors">
+      <Heart size={18} className="group-hover:stroke-app-error" />
+      <span className="text-xs">{likes}</span>
+    </button>
+    <button aria-label="Close" className="flex items-center gap-1.5 group hover:text-app-lavender transition-colors">
+      <Share size={18} className="group-hover:stroke-app-lavender" />
+    </button>
+  </div>
+);

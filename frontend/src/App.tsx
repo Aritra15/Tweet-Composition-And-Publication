@@ -15,7 +15,7 @@ const MOCK_USER = {
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>(ScreenName.HOME);
-  const [_draftThread, setDraftThread] = useState<Thread | null>(null);
+  const [draftThread, setDraftThread] = useState<Thread | null>(null);
 
   const navigate = (screen: ScreenName) => setCurrentScreen(screen);
 
@@ -30,12 +30,12 @@ function App() {
   };
 
   // Determine if we are in a modal flow
-  const isModal = currentScreen === ScreenName.COMPOSE || currentScreen === ScreenName.PUBLISH;
+  // const isModal = currentScreen === ScreenName.COMPOSE || currentScreen === ScreenName.PUBLISH;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-app-bg text-app-text overflow-hidden relative shadow-2xl">
       {/* Main screen - render Home when not in modal, or keep Home in background when modal is open */}
-      {!isModal ? <HomeScreen onNavigate={navigate} /> : <HomeScreen onNavigate={navigate} />}
+      <HomeScreen onNavigate={navigate} />
 
       <AnimatePresence>
         {currentScreen === ScreenName.COMPOSE && (
