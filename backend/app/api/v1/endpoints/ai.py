@@ -26,7 +26,8 @@ class ImageGenerateRequest(BaseModel):
 
 class ImageGenerateResponse(BaseModel):
     filename: str
-    file_path: str
+    image_data: str
+    image_url: str
     prompt: str
     original_prompt: str | None = None
 
