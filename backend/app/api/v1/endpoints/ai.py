@@ -19,6 +19,16 @@ class EnhanceResponse(BaseModel):
     enhanced: str
 
 
+class ImageGenerateRequest(BaseModel):
+    prompt: str
+
+
+class ImageGenerateResponse(BaseModel):
+    filename: str
+    file_path: str
+    prompt: str
+
+
 @router.post("/enhance-text", response_model=EnhanceResponse)
 async def enhance_text(request: TextEnhanceRequest) -> EnhanceResponse:
     try:
@@ -35,6 +45,15 @@ async def enhance_image_prompt(request: ImagePromptEnhanceRequest) -> EnhanceRes
         return EnhanceResponse(enhanced=enhanced_prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error enhancing image prompt: {str(e)}")
+
+
+@router.post("/generate-image", response_model=ImageGenerateResponse)
+async def generate_image(request: ImageGenerateRequest) -> ImageGenerateResponse:
+    try:
+        result = await ai_service.generate_image(request.prompt)
+        return ImageGenerateResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating image: {str(e)}")
 
 
 @router.get("/health-gemma")
