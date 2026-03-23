@@ -4,6 +4,66 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tweet Composer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              app: {
+                bg: '#0B0D11',
+                card: '#11141B',
+                elevated: '#161A22',
+                border: '#1F2531',
+                text: '#EAEFF7',
+                muted: '#9AA3B5',
+                peach: '#F6B8A0',
+                lavender: '#C9B3FF',
+                lime: '#A6F28A',
+                error: '#FF5C70',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0B0D11;
+        color: #EAEFF7;
+        font-family: 'Inter', sans-serif;
+        overscroll-behavior: none;
+      }
+      /* Hide scrollbar for clean UI */
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes fade-in-up {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.3s ease-in-out;
+      }
+      .animate-fade-in-up {
+        animation: fade-in-up 0.4s ease-out;
+      }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>
