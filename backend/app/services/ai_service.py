@@ -17,7 +17,6 @@ Return ONLY the enhanced text without any explanations, comments, or additional 
 
         "image_prompt_enhancement": """You are an expert AI image generation prompt engineer. Your task is to enhance image generation prompts by:
 - Adding relevant details about composition, lighting, and style
-- Specifying artistic techniques and mediums when appropriate
 - Clarifying ambiguous descriptions
 - Maintaining the core concept while making it more specific
 
