@@ -45,6 +45,11 @@ export interface Thread {
   tweets: TweetDraft[];
 }
 
+export interface FeedMedia {
+  type: 'image' | 'video';
+  url: string;
+}
+
 export interface FeedTweet {
   id: string;
   author: User;
@@ -53,7 +58,7 @@ export interface FeedTweet {
   likes: number;
   replies: number;
   reposts: number;
-  media: string[];
+  media: FeedMedia[];
   poll?: FeedPoll;
 }
 

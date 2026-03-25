@@ -27,7 +27,7 @@ const MOCK_TWEETS: FeedThread[] = [
         likes: 142,
         replies: 12,
         reposts: 8,
-        media: ['https://picsum.photos/600/300/?1', "https://picsum.photos/600/300/?2", "https://picsum.photos/600/300/?3"]
+        media: [{url: 'https://picsum.photos/600/300/?1', type: 'image'}, {url: "https://picsum.photos/600/300/?2", type: 'image'}, {url: "https://picsum.photos/600/300/?3", type: 'image'}]
       }
     ]
   },
@@ -63,7 +63,7 @@ const MOCK_TWEETS: FeedThread[] = [
         likes: 1300,
         replies: 48,
         reposts: 99,
-        media: ["https://picsum.photos/600/300/?4"]
+        media: [{url: "https://picsum.photos/600/300/?4", type: 'image'}]
       }
     ]
   },

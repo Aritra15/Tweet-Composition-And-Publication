@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Avatar, TweetActions } from "./Shared";
-import type { FeedThread, FeedTweet } from "../types";
+import type { FeedMedia, FeedThread, FeedTweet } from "../types";
 import VideoPlayer from './VideoPlayer';
 import MediaLightbox from './MediaLightbox';
 
@@ -16,11 +16,6 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
   const tweetCount = isThreadOpen ? tweetItems[0].tweets.length : 2;
   const [selectedPollOptions, setSelectedPollOptions] = useState<Record<string, string>>({});
   const [lightboxMedia, setLightboxMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
-
-  const isVideoUrl = (url: string): boolean => {
-    const isHttpUrl = url.startsWith('https://') || url.startsWith('http://');
-    return url.startsWith('data:video/') || (isHttpUrl && /\.(mp4|webm|mov|avi)$/i.test(url));
-  };
 
   const openLightbox = (url: string, type: 'image' | 'video') => {
     setLightboxMedia({ url, type });
@@ -96,18 +91,18 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
 
                     {tweet.media.length > 0 && (
                       <div className="mb-3 overflow-x-auto flex gap-2 py-1">
-                        {tweet.media.map((url: string, idx: number) => {
-                          const isVideo = isVideoUrl(url);
+                        {tweet.media.map((media: FeedMedia, idx: number) => {
+                          // const isVideo = isVideoUrl(url);
                           const single = tweet.media.length === 1;
 
-                          if (isVideo) {
+                          if (media.type === 'video') {
                             return (
                               <VideoPlayer
                                 key={idx}
-                                url={url}
+                                url={media.url}
                                 single={single}
                                 headerRef={headerRef}
-                                onOpen={() => openLightbox(url, 'video')}
+                                onOpen={() => openLightbox(media.url, 'video')}
                               />
                             );
                           }
@@ -116,12 +111,12 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                             <button
                               type="button"
                               key={idx}
-                              onClick={() => openLightbox(url, 'image')}
+                              onClick={() => openLightbox(media.url, 'image')}
                               onContextMenu={(event) => event.preventDefault()}
                               className={`flex-shrink-0 relative p-0 bg-transparent cursor-zoom-in ${single ? 'max-h-[360px] max-w-[90%] w-fit' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
                             >
                               <img
-                                src={url}
+                                src={media.url}
                                 alt={`Tweet media ${idx + 1}`}
                                 onContextMenu={(event) => event.preventDefault()}
                                 className={`${single ? "block max-h-[360px] w-auto h-auto" : "h-full w-full"} object-contain`}

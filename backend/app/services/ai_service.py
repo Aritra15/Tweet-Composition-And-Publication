@@ -126,7 +126,15 @@ Return ONLY the enhanced text without any explanations, comments, or additional 
 
             # Generate unique filename with timestamp for reference
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            filename = f"generated_{timestamp}.png"
+            
+            if base64_prefix:
+                # Example: data:image/png;base64
+                mime_type = base64_prefix.split(";")[0].split(":")[1]  # "image/png"
+                ext = mime_type.split("/")[-1]  # "png" or "jpeg"
+            else:
+                ext = "png"  # fallback
+
+            filename = f"generated_{timestamp}.{ext}"
 
             return {
                 "filename": filename,

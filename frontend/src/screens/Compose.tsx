@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { type Thread, type TweetDraft, type TweetMedia, type User, AudienceType } from '../types';
 import { Button, BottomSheet, Toggle, Input, Toast } from '../components/Shared';
 import { EmojiPicker } from '../components/EmojiPicker';
-import CompositionArea from '../components/CompositionArea';
+import CompositionArea from '../components/CompositionPreview';
 
 interface ComposeProps {
     onBack: () => void;

@@ -35,7 +35,7 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
       likes: 0,
       replies: 0,
       reposts: 0,
-      media: tweet.media.map((m) => m.url),
+      media: tweet.media.map((m) => ({url: m.url, type: m.type})),
       poll: tweet.poll
         ? {
             question: tweet.poll.question,
@@ -55,7 +55,7 @@ interface ApiTweetResponse {
   user_id: string;
   text: string;
   created_at: string;
-  media?: Array<{ url: string }>;
+  media?: Array<{ url: string, type: 'image' | 'video' }>;
   poll?: {
     question: string;
     options: Array<{
@@ -108,7 +108,7 @@ const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
         likes: 0,
         replies: 0,
         reposts: 0,
-        media: (tweet.media ?? []).map((item) => item.url),
+        media: (tweet.media ?? []).map((item) => ({url: item.url, type: item.type})),
         poll: tweet.poll
           ? {
               question: tweet.poll.question,
