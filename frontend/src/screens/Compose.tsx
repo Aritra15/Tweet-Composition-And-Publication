@@ -1,467 +1,623 @@
-import React, { useState, useRef } from 'react';
-import { X, Image, Smile, BarChart2, Globe, Plus, GripVertical, Trash2, CheckCircle, Lock, AlertTriangle, Users, Feather, Sparkles, Wand2, Hash } from 'lucide-react';
-import { motion, Reorder } from 'framer-motion';
-import { type Thread, type TweetDraft, AudienceType } from '../types';
-import { Avatar, Button, BottomSheet, Toggle, Chip, Input } from '../components/Shared';
+import React, { useRef, useState } from 'react';
+import { Image, Globe, Plus, CheckCircle, Lock, AlertTriangle, Users, Wand2, Hash, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { type Thread, type TweetDraft, type TweetMedia, type User, AudienceType } from '../types';
+import { Button, BottomSheet, Toggle, Input, Toast } from '../components/Shared';
+import { EmojiPicker } from '../components/EmojiPicker';
+import CompositionArea from '../components/CompositionArea';
 
 interface ComposeProps {
-  onBack: () => void;
-  onNext: (thread: Thread) => void;
-  currentUser: any;
+    onBack: () => void;
+    onNext: (thread: Thread) => void;
+    currentUser: User;
+    initialThread?: Thread | null;
 }
 
-const MAX_CHARS = 280;
+const API_BASE_URL = 'http://localhost:8000';
+const MAX_MEDIA_PER_TWEET = 4;
+const MAX_VIDEO_PER_TWEET = 1;
 
-const PLACEHOLDER_IMAGES = [
-    'https://picsum.photos/400/300?random=1',
-    'https://picsum.photos/400/300?random=2',
-    'https://picsum.photos/400/300?random=3',
-    'https://picsum.photos/400/300?random=4',
-    'https://picsum.photos/400/300?random=5',
-    'https://picsum.photos/400/300?random=6',
-];
+export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentUser, initialThread }) => {
+    const [tweets, setTweets] = useState<TweetDraft[]>(
+        initialThread?.tweets?.length
+            ? initialThread.tweets
+            : [{ id: '1', text: '', media: [] }]
+    );
+    const [activeTweetIndex, setActiveTweetIndex] = useState(0);
 
-const EMOJIS = ['😀', '😂', '😍', '🔥', '🚀', '💯', '🤔', '👍', '👎', '🎉', '✨', '💀', '🤡', '👀', '🙌', '💩', '💙', '✅'];
+    // Audience Settings
+    const [audience, setAudience] = useState<AudienceType>(AudienceType.EVERYONE);
+    const [shareToCircle, setShareToCircle] = useState(false);
+    const [isSensitive, setIsSensitive] = useState(false);
 
-const MOCK_HASHTAGS = ['#design', '#uiux', '#mobile', '#frontend', '#react', '#webdev', '#coding', '#tech'];
+    // Sheet States
+    const [activeSheet, setActiveSheet] = useState<'media' | 'emoji' | 'poll' | 'audience' | 'ai' | null>(null);
 
-export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentUser }) => {
-  const [tweets, setTweets] = useState<TweetDraft[]>([
-    { id: '1', text: '', media: [] }
-  ]);
-  const [activeTweetIndex, setActiveTweetIndex] = useState(0);
+    // Poll State
+    const [pollQuestion, setPollQuestion] = useState('');
+    const [pollOptions, setPollOptions] = useState(['', '']);
 
-  // Audience Settings
-  const [audience, setAudience] = useState<AudienceType>(AudienceType.EVERYONE);
-  const [shareToCircle, setShareToCircle] = useState(false);
-  const [isSensitive, setIsSensitive] = useState(false);
+    // AI State
+    const [imagePrompt, setImagePrompt] = useState('');
+    const [textLoading, setTextLoading] = useState(false);
+    const [imgLoading, setImgLoading] = useState(false);
+    const [hashtagsLoading, setHashtagsLoading] = useState(false);
+    const [enhancedText, setEnhancedText] = useState('');
+    const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+    const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([]);
+    const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
 
-  // Sheet States
-  const [activeSheet, setActiveSheet] = useState<'media' | 'emoji' | 'poll' | 'audience' | 'ai' | null>(null);
+    // Focus management
+    const mediaInputRef = useRef<HTMLInputElement | null>(null);
+    const mediaActionRef = useRef<HTMLDivElement | null>(null);
+    const emojiActionRef = useRef<HTMLDivElement | null>(null);
+    const pollActionRef = useRef<HTMLDivElement | null>(null);
+    const aiActionRef = useRef<HTMLDivElement | null>(null);
+    const audienceActionRef = useRef<HTMLButtonElement | null>(null);
+    const [isMediaDragActive, setIsMediaDragActive] = useState(false);
+    const [mediaToastMessage, setMediaToastMessage] = useState<string | null>(null);
 
-  // Poll State
-  const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOptions, setPollOptions] = useState(['', '']);
+    const showMediaToast = (message: string) => {
+        setMediaToastMessage(message);
+        window.setTimeout(() => setMediaToastMessage(null), 2500);
+    };
 
-  // AI State
-  const [imagePrompt, setImagePrompt] = useState('');
+    const fileToDataUrl = (file: File): Promise<string> =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            reader.readAsDataURL(file);
+        });
 
-  // Focus management
-  const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+    const handleAddMediaFiles = async (files: FileList | File[]) => {
+        const activeTweet = tweets[activeTweetIndex];
+        if (!activeTweet) return;
 
-  const handleAddTweet = () => {
-    const newId = Date.now().toString();
-    setTweets([...tweets, { id: newId, text: '', media: [] }]);
-    setTimeout(() => {
-        const idx = tweets.length;
-        textareaRefs.current[idx]?.focus();
-        setActiveTweetIndex(idx);
-    }, 50);
-  };
+        const supportedFiles = Array.from(files).filter((file) =>
+            file.type.startsWith('image/') || file.type.startsWith('video/')
+        );
+        if (supportedFiles.length === 0) {
+            showMediaToast('Only image and video files are supported.');
+            return;
+        }
 
-  const handleRemoveTweet = (id: string) => {
-    if (tweets.length === 1) return;
-    setTweets(tweets.filter(t => t.id !== id));
-  };
+        const availableSlots = MAX_MEDIA_PER_TWEET - activeTweet.media.length;
+        if (availableSlots <= 0) {
+            showMediaToast(`You can upload up to ${MAX_MEDIA_PER_TWEET} media files.`);
+            setActiveSheet(null);
+            return;
+        }
 
-  const handleTextChange = (id: string, text: string) => {
-    setTweets(tweets.map(t => t.id === id ? { ...t, text } : t));
-  };
+        const existingVideoCount = activeTweet.media.filter((media) => media.type === 'video').length;
+        const acceptedFiles: File[] = [];
+        let videoCount = existingVideoCount;
+        let skippedMedia = 0;
+        let skippedVideos = 0;
 
-  const handleAddMedia = (url: string) => {
-      setTweets(tweets.map((t, i) => 
-          i === activeTweetIndex 
-          ? { ...t, media: [...t.media, { id: Date.now().toString(), type: 'image', url }] } 
-          : t
-      ));
-      setActiveSheet(null);
-  };
+        for (const file of supportedFiles) {
+            if (acceptedFiles.length >= availableSlots) {
+                skippedMedia += 1;
+                continue;
+            }
 
-  const handleAddEmoji = (emoji: string) => {
-      const currentText = tweets[activeTweetIndex].text;
-      handleTextChange(tweets[activeTweetIndex].id, currentText + emoji);
-  };
+            const isVideo = file.type.startsWith('video/');
+            if (isVideo && videoCount >= MAX_VIDEO_PER_TWEET) {
+                skippedVideos += 1;
+                continue;
+            }
 
-  const handleSavePoll = () => {
-      const validOptions = pollOptions.filter(o => o.trim() !== '').map((text, i) => ({ id: i.toString(), text }));
-      if (pollQuestion && validOptions.length >= 2) {
-          setTweets(tweets.map((t, i) => 
-            i === activeTweetIndex ? { ...t, poll: { question: pollQuestion, options: validOptions } } : t
-          ));
-          setPollQuestion('');
-          setPollOptions(['', '']);
-          setActiveSheet(null);
-      }
-  };
+            acceptedFiles.push(file);
+            if (isVideo) {
+                videoCount += 1;
+            }
+        }
 
-  // AI Actions
-  const handleUseEnhancedText = () => {
-    handleTextChange(tweets[activeTweetIndex].id, "This is a clearer, more engaging version of your tweet that captures the audience's attention instantly! ✨");
-    setActiveSheet(null);
-  };
+        if (acceptedFiles.length === 0) {
+            showMediaToast('Only one video is allowed per tweet.');
+            setActiveSheet(null);
+            return;
+        }
 
-  const handleGenerateImage = () => {
-    // Mock generation
-    handleAddMedia(`https://picsum.photos/400/300?seed=${imagePrompt}`);
-    setImagePrompt('');
-    setActiveSheet(null);
-  };
+        const mediaDataUrls = await Promise.all(acceptedFiles.map((file) => fileToDataUrl(file)));
 
-  const handleAddHashtag = (tag: string) => {
-    const currentText = tweets[activeTweetIndex].text;
-    handleTextChange(tweets[activeTweetIndex].id, currentText + (currentText.length > 0 && !currentText.endsWith(' ') ? ' ' : '') + tag);
-  };
+        setTweets((prev) => prev.map((t, i) => {
+            if (i !== activeTweetIndex) return t;
 
-  const canProceed = tweets.every(t => t.text.length > 0 && t.text.length <= MAX_CHARS);
+            const newMedia: TweetMedia[] = acceptedFiles.map((file, idx) => {
+                const mediaType: 'image' | 'video' =
+                    file.type.startsWith('video/')
+                        ? 'video'
+                        : 'image';
+                return {
+                    id: `${Date.now()}-${idx}`,
+                    type: mediaType,
+                    url: mediaDataUrls[idx],
+                    source: 'upload',
+                };
+            });
 
-  return (
-    <motion.div 
-      initial={{ y: '100%' }}
-      animate={{ y: 0 }}
-      exit={{ y: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-      className="fixed inset-0 z-50 bg-app-bg flex flex-col"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-app-border bg-app-bg/95 backdrop-blur">
-        <button onClick={onBack} className="text-app-text hover:text-app-muted p-2 -ml-2">
-          <X size={24} />
-        </button>
-        <span className="font-semibold text-app-text text-lg">
-          {tweets.length > 1 ? 'New Thread' : 'New Tweet'}
-        </span>
-        <Button 
-          variant="primary" 
-          size="sm" 
-          disabled={!canProceed}
-          onClick={() => onNext({ tweets })}
+            return { ...t, media: [...t.media, ...newMedia] };
+        }));
+
+        setActiveSheet(null);
+
+        if (skippedMedia > 0 || skippedVideos > 0) {
+            const parts: string[] = [];
+            if (skippedMedia > 0) parts.push(`max ${MAX_MEDIA_PER_TWEET} media allowed`);
+            if (skippedVideos > 0) parts.push('only one video allowed');
+            showMediaToast(`Some files were skipped: ${parts.join(', ')}.`);
+        }
+    };
+
+    const handleMediaInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            void handleAddMediaFiles(e.target.files);
+            e.target.value = '';
+        }
+    };
+
+    const handleMediaDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsMediaDragActive(true);
+    };
+
+    const handleMediaDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsMediaDragActive(false);
+    };
+
+    const handleMediaDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsMediaDragActive(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            void handleAddMediaFiles(e.dataTransfer.files);
+        }
+    };
+
+    const handleAddEmoji = (emoji: string) => {
+        setTweets((prev) => prev.map((t, i) => {
+            if (i !== activeTweetIndex) return t;
+            return { ...t, text: `${t.text}${emoji}` };
+        }));
+    };
+
+    const handleSavePoll = () => {
+        const validOptions = pollOptions.filter(o => o.trim() !== '').map((text, i) => ({ id: i.toString(), text }));
+        if (pollQuestion && validOptions.length >= 2) {
+            setTweets(tweets.map((t, i) =>
+                i === activeTweetIndex ? { ...t, poll: { question: pollQuestion, options: validOptions } } : t
+            ));
+            setPollQuestion('');
+            setPollOptions(['', '']);
+            setActiveSheet(null);
+        }
+    };
+
+    // AI Actions
+    const handleUseEnhancedText = async () => {
+        setTextLoading(true);
+        const response = await fetch(`${API_BASE_URL}/api/v1/ai/enhance-text`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: tweets[activeTweetIndex].text })
+        });
+
+        const data = await response.json();
+        setEnhancedText(data.enhanced);
+        setSuggestedHashtags([]);
+        setSelectedHashtags([]);
+        setTextLoading(false);
+    };
+
+    const handleGenerateImage = async () => {
+        const activeTweet = tweets[activeTweetIndex];
+        const availableSlots = activeTweet ? Math.max(0, MAX_MEDIA_PER_TWEET - activeTweet.media.length) : 0;
+        if (availableSlots == 0) {
+            showMediaToast(`Only ${MAX_MEDIA_PER_TWEET} media files are allowed per tweet.`);
+            return;
+        }
+
+        setImgLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/ai/generate-image`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: imagePrompt })
+            });
+
+            if (!response.ok) {
+                showMediaToast('Failed to generate image. Please try again.');
+                setImgLoading(false);
+                return;
+            }
+
+            const data = await response.json();
+            setGeneratedImages(prev => [...prev, data.image_url]);
+            setImagePrompt('');
+        } catch (error) {
+            showMediaToast('Error generating image. Please try again.');
+            console.error('Image generation error:', error);
+        } finally {
+            setImgLoading(false);
+        }
+    };
+
+    const handleHashtagSuggestions = async (text: string) => {
+        if (!text.trim()) {
+            setSuggestedHashtags([]);
+            setSelectedHashtags([]);
+            return;
+        }
+
+        setHashtagsLoading(true);
+        const response = await fetch(`${API_BASE_URL}/api/v1/ai/suggest-hashtags`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text })
+        });
+
+        const data = await response.json();
+        const hashtags = Array.isArray(data.hashtags) ? data.hashtags.slice(0, 7) : [];
+        setSuggestedHashtags(hashtags);
+        setSelectedHashtags([]);
+        setHashtagsLoading(false);
+    };
+
+    const toggleHashtagSelection = (tag: string) => {
+        setSelectedHashtags((prev) =>
+            prev.includes(tag)
+                ? prev.filter((item) => item !== tag)
+                : [...prev, tag]
+        );
+    };
+
+    const appendSelectedHashtags = (baseText: string) => {
+        if (selectedHashtags.length === 0) return baseText;
+
+        const separator = baseText.length > 0 && !baseText.endsWith(' ') ? ' ' : '';
+        return `${baseText}${separator}${selectedHashtags.join(' ')}`;
+    };
+
+    const onAiToolsOpen = () => {
+        if (!enhancedText) {
+            setEnhancedText(tweets[activeTweetIndex].text);
+        }
+    }
+
+    const onAiToolsClose = (op : string) => {
+        if (op === 'save') {
+            console.log('Saving AI enhancements:');
+            setTweets(prev => prev.map((t, i) => {
+                if (i !== activeTweetIndex) return t;
+
+                const updatedText = enhancedText ? appendSelectedHashtags(enhancedText) : t.text;
+                const updatedMedia = generatedImages.length > 0 ? [...t.media, ...generatedImages.map((url, idx): TweetMedia => ({
+                    id: `ai-generated-${Date.now()}-${idx}`,
+                    type: 'image',
+                    url,
+                    source: 'ai',
+                }))] : t.media;
+
+                return { ...t, text: updatedText, media: updatedMedia };
+            }));
+        }
+
+        setEnhancedText('');
+        setImagePrompt('');
+        setGeneratedImages([]);
+        setSuggestedHashtags([]);
+        setSelectedHashtags([]);
+        setActiveSheet(null);
+    }
+
+    const getSheetAnchor = () => {
+        if (activeSheet === 'media') return mediaActionRef;
+        if (activeSheet === 'emoji') return emojiActionRef;
+        if (activeSheet === 'poll') return pollActionRef;
+        if (activeSheet === 'ai') return aiActionRef;
+        if (activeSheet === 'audience') return audienceActionRef;
+        return undefined;
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-4"
         >
-          Next
-        </Button>
-      </div>
+            <CompositionArea
+                onBack={onBack}
+                onNext={onNext}
+                currentUser={currentUser}
+                tweets={tweets}
+                setTweets={setTweets}
+                activeTweetIndex={activeTweetIndex}
+                setActiveTweetIndex={setActiveTweetIndex}
+                setActiveSheet={setActiveSheet}
+                audience={audience}
+                mediaActionRef={mediaActionRef}
+                emojiActionRef={emojiActionRef}
+                pollActionRef={pollActionRef}
+                aiActionRef={aiActionRef}
+                audienceActionRef={audienceActionRef}
+            />
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
-        <Reorder.Group axis="y" values={tweets} onReorder={setTweets} className="space-y-6">
-          {tweets.map((tweet, index) => {
-            const remainingChars = MAX_CHARS - tweet.text.length;
-            
-            return (
-            <Reorder.Item key={tweet.id} value={tweet} className="relative">
-              <div className="flex gap-3 relative group">
-                {/* Connector Line for Thread */}
-                {index < tweets.length - 1 && (
-                  <div className="absolute left-[20px] top-[50px] bottom-[-24px] w-0.5 bg-app-border z-0" />
-                )}
+            {/* --- Sheets --- */}
 
-                <div className="shrink-0 z-10 pt-1 flex flex-col items-center gap-2">
-                   {tweets.length > 1 && (
-                      <div className="cursor-grab active:cursor-grabbing text-app-muted hover:text-app-peach p-1">
-                          <GripVertical size={16} />
-                      </div>
-                   )}
-                   <Avatar src={currentUser.avatar} alt="Me" />
+            {/* Media Sheet */}
+            <BottomSheet
+                isOpen={activeSheet === 'media'}
+                onClose={() => setActiveSheet(null)}
+                title="Add Media"
+                floating
+                anchorRef={getSheetAnchor()}
+            >
+                <div className="space-y-4">
+                    <input
+                        ref={mediaInputRef}
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple
+                        className="hidden"
+                        aria-label="Upload media from device"
+                        title="Upload media from device"
+                        onChange={handleMediaInputChange}
+                    />
+
+                    <div
+                        onDragOver={handleMediaDragOver}
+                        onDragLeave={handleMediaDragLeave}
+                        onDrop={handleMediaDrop}
+                        className={`rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${isMediaDragActive
+                            ? 'border-app-peach bg-app-peach/10'
+                            : 'border-white/20 bg-black/20'
+                            }`}
+                    >
+                        <p className="text-white font-semibold">Drag and drop media here</p>
+                        <p className="text-white/60 text-sm mt-1">or choose image/video files from your device</p>
+                        <br /><br />
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="mx-auto mt-4"
+                            onClick={() => mediaInputRef.current?.click()}
+                        >
+                            Choose from device
+                        </Button>
+                    </div>
+
+                    <p className="text-xs text-white/55 text-center">Up to 4 media per tweet, with at most 1 video</p>
+                </div>
+            </BottomSheet>
+
+            {/* Emoji Sheet */}
+            <BottomSheet
+                isOpen={activeSheet === 'emoji'}
+                onClose={() => setActiveSheet(null)}
+                title="Emojis"
+                floating
+                anchorRef={getSheetAnchor()}
+                horizontalOffset={-252}
+                verticalOffset={104}
+                panelClassName="bg-[#17191d]"
+            >
+                <EmojiPicker onSelect={handleAddEmoji} />
+            </BottomSheet>
+
+            {/* Poll Sheet */}
+            <BottomSheet
+                isOpen={activeSheet === 'poll'}
+                onClose={() => setActiveSheet(null)}
+                title="Create Poll"
+                floating
+                anchorRef={getSheetAnchor()}
+            >
+                <div className="space-y-4">
+                    <input
+                        value={pollQuestion}
+                        onChange={(e) => setPollQuestion(e.target.value)}
+                        placeholder="Ask a question..."
+                        className="w-full bg-black/25 p-3 rounded-xl border border-white/15 focus:border-app-peach outline-none text-white text-lg"
+                    />
+                    <div className="space-y-3">
+                        {pollOptions.map((opt, i) => (
+                            <input
+                                key={i}
+                                value={opt}
+                                onChange={(e) => {
+                                    const newOpts = [...pollOptions];
+                                    newOpts[i] = e.target.value;
+                                    setPollOptions(newOpts);
+                                }}
+                                placeholder={`Option ${i + 1}`}
+                                className="w-full bg-black/25 p-3 rounded-xl border border-white/15 focus:border-app-peach outline-none text-white"
+                            />
+                        ))}
+                    </div>
+                    <button
+                        onClick={() => setPollOptions([...pollOptions, ''])}
+                        className="text-app-peach font-medium flex items-center gap-1"
+                    >
+                        <Plus size={18} /> Add option
+                    </button>
+                    <Button onClick={handleSavePoll} className="w-full mt-4">Add Poll</Button>
+                </div>
+            </BottomSheet>
+
+            {/* Audience Sheet */}
+            <BottomSheet
+                isOpen={activeSheet === 'audience'}
+                onClose={() => setActiveSheet(null)}
+                title="Audience"
+                floating
+                anchorRef={getSheetAnchor()}
+            >
+                <div className="space-y-1 mb-6">
+                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Who can reply?</h4>
+                    {[AudienceType.EVERYONE, AudienceType.FOLLOW, AudienceType.MENTIONED].map((type) => (
+                        <button
+                            key={type}
+                            onClick={() => setAudience(type)}
+                            className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${audience === type
+                                ? 'bg-app-peach/10 border-app-peach'
+                                : 'bg-black/20 border-white/15 hover:bg-white/5'
+                                }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-full ${audience === type ? 'bg-app-peach text-[#0e1116]' : 'bg-white/10 text-white/60'}`}>
+                                    {type === AudienceType.EVERYONE ? <Globe size={20} /> : type === AudienceType.FOLLOW ? <Users size={20} /> : <Lock size={20} />}
+                                </div>
+                                <span className={`font-medium text-lg ${audience === type ? 'text-app-peach' : 'text-white'}`}>{type}</span>
+                            </div>
+                            {audience === type && <CheckCircle size={20} className="text-app-peach fill-app-peach/20" />}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="flex-1 min-w-0 bg-app-card rounded-2xl p-4 shadow-sm border border-transparent focus-within:border-app-lavender/30 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                     <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="text-xs font-medium text-app-muted shrink-0">
-                            {currentUser.handle}
-                        </span>
-                        {remainingChars < 0 ? (
-                            <span className="text-[10px] font-bold text-app-error animate-pulse truncate">
-                                Character Limit Exceeded
-                            </span>
-                        ) : remainingChars < 20 ? (
-                            <span className="text-[10px] font-bold text-orange-400 truncate">
-                                Approaching Character Limit
-                            </span>
-                        ) : null}
-                     </div>
-                     {tweets.length > 1 && (
-                         <button 
-                            onClick={() => handleRemoveTweet(tweet.id)}
-                            className="text-app-muted hover:text-app-error p-1 shrink-0 ml-2"
-                         >
-                            <Trash2 size={16} />
-                         </button>
-                     )}
-                  </div>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/15">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-app-lime/10 text-app-lime rounded-full">
+                                <CheckCircle size={20} />
+                            </div>
+                            <div>
+                                <p className="font-medium text-white">Share to Circle</p>
+                                <p className="text-sm text-white/60">Only visible to your Circle members</p>
+                            </div>
+                        </div>
+                        <Toggle checked={shareToCircle} onChange={setShareToCircle} />
+                    </div>
 
-                  <textarea
-                    ref={el => { textareaRefs.current[index] = el; }}
-                    value={tweet.text}
-                    onChange={(e) => {
-                        handleTextChange(tweet.id, e.target.value);
-                        setActiveTweetIndex(index);
-                    }}
-                    onFocus={() => setActiveTweetIndex(index)}
-                    placeholder={index === 0 ? "What's happening?" : "Add another tweet..."}
-                    className="w-full bg-transparent text-app-text text-lg placeholder-app-muted outline-none resize-none min-h-[100px]"
-                    style={{ lineHeight: '1.5' }}
-                  />
-
-                  {/* Media Preview */}
-                  {tweet.media.length > 0 && (
-                      <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-                          {tweet.media.map(m => (
-                              <div key={m.id} className="w-24 h-24 rounded-xl bg-app-elevated relative shrink-0">
-                                  <img src={m.url} className="w-full h-full object-cover rounded-xl" />
-                                  <button 
-                                    className="absolute top-1 right-1 bg-black/50 p-1 rounded-full text-white"
-                                    onClick={() => {
-                                        const newMedia = tweet.media.filter(media => media.id !== m.id);
-                                        setTweets(tweets.map(t => t.id === tweet.id ? { ...t, media: newMedia } : t));
-                                    }}
-                                  >
-                                    <X size={12} />
-                                  </button>
-                              </div>
-                          ))}
-                      </div>
-                  )}
-
-                  {/* Poll Preview */}
-                  {tweet.poll && (
-                      <div className="mt-3 p-3 rounded-xl border border-app-border bg-app-elevated">
-                          <p className="font-semibold text-app-text mb-2">{tweet.poll.question}</p>
-                          <div className="space-y-2">
-                              {tweet.poll.options.map((opt, i) => (
-                                  <div key={i} className="h-8 rounded-lg border border-app-border flex items-center px-3 text-sm text-app-muted">
-                                      {opt.text}
-                                  </div>
-                              ))}
-                          </div>
-                          <button 
-                             onClick={() => setTweets(tweets.map(t => t.id === tweet.id ? { ...t, poll: undefined } : t))}
-                             className="mt-2 text-xs text-app-error flex items-center gap-1"
-                          >
-                             <Trash2 size={12} /> Remove poll
-                          </button>
-                      </div>
-                  )}
-
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-app-border/50">
-                     <div className="flex items-center gap-3 overflow-hidden">
-                       <button 
-                          onClick={() => setActiveSheet('audience')}
-                          className="text-app-peach text-sm font-medium flex items-center gap-2 px-3 py-1.5 rounded-full border border-app-peach hover:bg-app-peach/10 transition-colors shrink-0"
-                       >
-                          <Globe size={14} />
-                          {audience}
-                       </button>
-                     </div>
-                     
-                     <div className={`text-xs font-medium shrink-0 ml-2 ${
-                         remainingChars < 0 ? 'text-app-error' : 
-                         remainingChars < 20 ? 'text-orange-400' : 'text-app-muted'
-                     }`}>
-                        {tweet.text.length}/{MAX_CHARS}
-                     </div>
-                  </div>
+                    <div className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/15">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-amber-500/10 text-amber-500 rounded-full">
+                                <AlertTriangle size={20} />
+                            </div>
+                            <div>
+                                <p className="font-medium text-white">Sensitive content</p>
+                                <p className="text-sm text-white/60">Mark this tweet as containing sensitive material</p>
+                            </div>
+                        </div>
+                        <Toggle checked={isSensitive} onChange={setIsSensitive} />
+                    </div>
                 </div>
-              </div>
-            </Reorder.Item>
-          )})}
-        </Reorder.Group>
+            </BottomSheet>
 
-        <div className="ml-[52px] mt-4">
-          <button 
-            onClick={handleAddTweet}
-            className="flex items-center gap-2 text-app-peach hover:text-app-lavender transition-colors py-2 px-3 rounded-xl hover:bg-app-elevated/50"
-          >
-            <Plus size={20} />
-            <span className="font-medium">Add another tweet</span>
-          </button>
-        </div>
-        
-        <div className="h-32" />
-      </div>
+            {/* AI Tools Sheet */}
+            <BottomSheet
+                isOpen={activeSheet === 'ai'}
+                onOpen={onAiToolsOpen}
+                onClose={() => onAiToolsClose('save')}
+                onCancel={() => onAiToolsClose('cancel')}
+                title="AI Tools"
+                floating
+                anchorRef={getSheetAnchor()}
+            >
+                <div className="space-y-6">
+                    {/* Enhance Text */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-app-text font-bold">
+                            <Wand2 size={18} className="text-app-peach" />
+                            <h4>Enhance Text</h4>
+                        </div>
+                        <div className="p-3 bg-app-card border border-app-border rounded-xl">
+                            <p className="text-app-text text-sm italic opacity-90">{`${enhancedText}`}</p>
+                        </div>
+                        <Button variant="secondary" size="sm" onClick={handleUseEnhancedText} disabled={!tweets[activeTweetIndex].text.trim() || textLoading || imgLoading} className="w-full">
+                            {!textLoading ? "Use enhanced text" : "Enhancing..."}
+                        </Button>
+                    </div>
 
-      {/* Sticky Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 bg-app-bg border-t border-app-border px-4 py-3 pb-8">
-        <div className="flex items-center justify-between max-w-md mx-auto">
-           <div className="flex gap-1 flex-1">
-              <Button variant="icon" icon={Image} onClick={() => setActiveSheet('media')} />
-              <Button variant="icon" icon={Smile} onClick={() => setActiveSheet('emoji')} />
-              <Button variant="icon" icon={BarChart2} onClick={() => setActiveSheet('poll')} />
-              <Button variant="icon" icon={Sparkles} onClick={() => setActiveSheet('ai')} />
-           </div>
-           
-           <div className="h-6 w-[1px] bg-app-border mx-2" />
+                    <div className="h-[1px] bg-app-border" />
 
-           {/* Branding Icon (Replaces Progress Indicator) */}
-           <div className="w-8 h-8 rounded-full bg-app-peach flex items-center justify-center">
-              <Feather className="text-app-bg w-5 h-5" />
-           </div>
-        </div>
-      </div>
+                    {/* Generate Image */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-app-text font-bold">
+                            <Image size={18} className="text-app-peach" />
+                            <h4>Generate Image</h4>
+                        </div>
+                        <Input
+                            value={imagePrompt}
+                            onChange={setImagePrompt}
+                            placeholder="Describe the image you want..."
+                            className="text-sm h-10"
+                        />
+                        {generatedImages.length > 0 && (
+                            <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                                {generatedImages.map((url, id) => (
+                                    <div key={id} className="w-24 h-24 rounded-xl bg-black/30 relative shrink-0">
+                                        <img aria-label="Close" src={url} className="w-full h-full object-cover rounded-xl" />
+                                        <button
+                                            aria-label="Close"
+                                            className="absolute top-1 right-1 bg-black/50 p-1 rounded-full text-white"
+                                            onClick={() => {
+                                                const newMedia = generatedImages.filter((_, idx) => idx !== id);
+                                                setGeneratedImages(newMedia);
+                                            }}
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <Button variant="secondary" size="sm" onClick={handleGenerateImage} disabled={!imagePrompt.trim() || textLoading || imgLoading} className="w-full">
+                            {!imgLoading ? "Generate Image" : "Generating..."}
+                        </Button>
+                    </div>
 
-      {/* --- Sheets --- */}
+                    <div className="h-[1px] bg-app-border" />
 
-      {/* Media Sheet */}
-      <BottomSheet isOpen={activeSheet === 'media'} onClose={() => setActiveSheet(null)} title="Add Media">
-          <div className="grid grid-cols-3 gap-3">
-              {PLACEHOLDER_IMAGES.map((url, i) => (
-                  <button key={i} onClick={() => handleAddMedia(url)} className="aspect-square rounded-xl overflow-hidden hover:opacity-80 transition-opacity">
-                      <img src={url} alt="Media" className="w-full h-full object-cover" />
-                  </button>
-              ))}
-          </div>
-      </BottomSheet>
+                    {/* Hashtag Suggestions */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-app-text font-bold">
+                            <Hash size={18} className="text-app-peach" />
+                            <h4>Hashtag Suggestions</h4>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleHashtagSuggestions(enhancedText)}
+                            disabled={!enhancedText.trim() || hashtagsLoading || textLoading || imgLoading}
+                            className="w-full"
+                        >
+                            {hashtagsLoading ? 'Generating hashtags...' : 'Generate Hashtags'}
+                        </Button>
 
-      {/* Emoji Sheet */}
-      <BottomSheet isOpen={activeSheet === 'emoji'} onClose={() => setActiveSheet(null)} title="Emojis">
-          <div className="grid grid-cols-6 gap-2">
-              {EMOJIS.map((emoji, i) => (
-                  <button key={i} onClick={() => handleAddEmoji(emoji)} className="text-3xl p-2 hover:bg-app-elevated rounded-xl">
-                      {emoji}
-                  </button>
-              ))}
-          </div>
-      </BottomSheet>
+                        {suggestedHashtags.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {suggestedHashtags.map((tag) => {
+                                    const selected = selectedHashtags.includes(tag);
+                                    return (
+                                        <button
+                                            key={tag}
+                                            type="button"
+                                            onClick={() => toggleHashtagSelection(tag)}
+                                            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${selected
+                                                ? 'bg-app-peach/20 border-app-peach text-app-peach'
+                                                : 'bg-black/20 border-white/20 text-white/80 hover:border-app-peach/60'
+                                                }`}
+                                        >
+                                            {tag}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
 
-      {/* Poll Sheet */}
-      <BottomSheet isOpen={activeSheet === 'poll'} onClose={() => setActiveSheet(null)} title="Create Poll">
-          <div className="space-y-4">
-              <input 
-                  value={pollQuestion}
-                  onChange={(e) => setPollQuestion(e.target.value)}
-                  placeholder="Ask a question..."
-                  className="w-full bg-app-card p-3 rounded-xl border border-app-border focus:border-app-peach outline-none text-app-text text-lg"
-              />
-              <div className="space-y-3">
-                  {pollOptions.map((opt, i) => (
-                      <input 
-                          key={i}
-                          value={opt}
-                          onChange={(e) => {
-                              const newOpts = [...pollOptions];
-                              newOpts[i] = e.target.value;
-                              setPollOptions(newOpts);
-                          }}
-                          placeholder={`Option ${i + 1}`}
-                          className="w-full bg-app-elevated p-3 rounded-xl border border-app-border focus:border-app-lavender outline-none text-app-text"
-                      />
-                  ))}
-              </div>
-              <button 
-                 onClick={() => setPollOptions([...pollOptions, ''])}
-                 className="text-app-peach font-medium flex items-center gap-1"
-              >
-                  <Plus size={18} /> Add option
-              </button>
-              <Button onClick={handleSavePoll} className="w-full mt-4">Add Poll</Button>
-          </div>
-      </BottomSheet>
+                        {selectedHashtags.length > 0 && (
+                            <p className="text-xs text-white/70">
+                                {selectedHashtags.length} hashtag{selectedHashtags.length === 1 ? '' : 's'} selected. They will be added when you tap Done.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </BottomSheet>
 
-      {/* Audience Sheet */}
-      <BottomSheet isOpen={activeSheet === 'audience'} onClose={() => setActiveSheet(null)} title="Audience">
-          <div className="space-y-1 mb-6">
-              <h4 className="text-xs font-bold text-app-muted uppercase tracking-wider mb-2">Who can reply?</h4>
-              {[AudienceType.EVERYONE, AudienceType.FOLLOW, AudienceType.MENTIONED].map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setAudience(type)}
-                    className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${
-                        audience === type 
-                        ? 'bg-app-peach/10 border-app-peach' 
-                        : 'bg-app-card border-app-border hover:bg-app-elevated'
-                    }`}
-                  >
-                     <div className="flex items-center gap-3">
-                         <div className={`p-2 rounded-full ${audience === type ? 'bg-app-peach text-app-bg' : 'bg-app-elevated text-app-muted'}`}>
-                             {type === AudienceType.EVERYONE ? <Globe size={20} /> : type === AudienceType.FOLLOW ? <Users size={20} /> : <Lock size={20} />}
-                         </div>
-                         <span className={`font-medium text-lg ${audience === type ? 'text-app-peach' : 'text-app-text'}`}>{type}</span>
-                     </div>
-                     {audience === type && <CheckCircle size={20} className="text-app-peach fill-app-peach/20" />}
-                  </button>
-              ))}
-          </div>
-          
-          <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-app-card rounded-xl border border-app-border">
-                  <div className="flex items-center gap-3">
-                      <div className="p-2 bg-app-lime/10 text-app-lime rounded-full">
-                          <CheckCircle size={20} />
-                      </div>
-                      <div>
-                          <p className="font-medium text-app-text">Share to Circle</p>
-                          <p className="text-sm text-app-muted">Only visible to your Circle members</p>
-                      </div>
-                  </div>
-                  <Toggle checked={shareToCircle} onChange={setShareToCircle} />
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-app-card rounded-xl border border-app-border">
-                  <div className="flex items-center gap-3">
-                      <div className="p-2 bg-amber-500/10 text-amber-500 rounded-full">
-                          <AlertTriangle size={20} />
-                      </div>
-                      <div>
-                          <p className="font-medium text-app-text">Sensitive content</p>
-                          <p className="text-sm text-app-muted">Mark this tweet as containing sensitive material</p>
-                      </div>
-                  </div>
-                  <Toggle checked={isSensitive} onChange={setIsSensitive} />
-              </div>
-          </div>
-      </BottomSheet>
-
-      {/* AI Tools Sheet */}
-      <BottomSheet isOpen={activeSheet === 'ai'} onClose={() => setActiveSheet(null)} title="AI Tools">
-          <div className="space-y-6">
-              {/* Enhance Text */}
-              <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-app-text font-bold">
-                      <Wand2 size={18} className="text-app-peach" />
-                      <h4>Enhance Text</h4>
-                  </div>
-                  <div className="p-3 bg-app-card border border-app-border rounded-xl">
-                      <p className="text-app-text text-sm italic opacity-90">"This is a clearer, more engaging version of your tweet that captures the audience's attention instantly! ✨"</p>
-                  </div>
-                  <Button variant="secondary" size="sm" onClick={handleUseEnhancedText} className="w-full">
-                      Use enhanced text
-                  </Button>
-              </div>
-
-              <div className="h-[1px] bg-app-border" />
-
-              {/* Generate Image */}
-              <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-app-text font-bold">
-                      <Image size={18} className="text-app-peach" />
-                      <h4>Generate Image</h4>
-                  </div>
-                  <Input 
-                      value={imagePrompt} 
-                      onChange={setImagePrompt} 
-                      placeholder="Describe the image you want..." 
-                      className="text-sm h-10"
-                  />
-                  <Button variant="secondary" size="sm" onClick={handleGenerateImage} disabled={!imagePrompt.trim()} className="w-full">
-                      Generate Image
-                  </Button>
-              </div>
-
-              <div className="h-[1px] bg-app-border" />
-
-              {/* Hashtag Suggestions */}
-              <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-app-text font-bold">
-                      <Hash size={18} className="text-app-peach" />
-                      <h4>Hashtag Suggestions</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                      {MOCK_HASHTAGS.map(tag => (
-                          <Chip key={tag} label={tag} onClick={() => handleAddHashtag(tag)} />
-                      ))}
-                  </div>
-              </div>
-          </div>
-      </BottomSheet>
-    </motion.div>
-  );
+            {mediaToastMessage && <Toast message={mediaToastMessage} type="error" className="z-[90]" />}
+        </motion.div>
+    );
 };

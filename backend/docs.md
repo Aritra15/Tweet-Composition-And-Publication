@@ -4,21 +4,49 @@
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| **System** | | |
+| GET | `/health` | Basic API health check |
 | **Tweets** | | |
 | POST | `/tweets` | Create tweet with media |
+| GET | `/tweets` | Get latest tweets across all users |
 | GET | `/tweets/{tweet_id}` | Get tweet by ID |
 | GET | `/tweets/user/{user_id}` | Get user's tweets |
 | DELETE | `/tweets/{tweet_id}` | Delete tweet |
+| POST | `/tweets/stub` | Legacy stub tweet create |
 | **Media** | | |
 | POST | `/media` | Add single media to tweet |
 | POST | `/media/bulk/{tweet_id}` | Add multiple media to tweet |
 | GET | `/media/tweet/{tweet_id}` | Get all media for tweet |
+| GET | `/media/tweet/{tweet_id}/metadata` | Get media metadata only |
 | DELETE | `/media/{media_id}` | Delete media |
 | **AI** | | |
 | GET | `/ai/health-gemma` | Health check |
 | POST | `/ai/enhance-text` | Enhance text |
-| POST | `/ai/enhance-image-prompt` | Enhance image prompt |
+| POST | `/ai/suggest-hashtags` | Suggest hashtags |
 | POST | `/ai/generate-image` | Generate AI image |
+
+---
+
+## System Endpoint
+
+Base URL: `http://localhost:8000/api/v1`
+
+---
+
+### Health Check
+
+**Endpoint:** `GET /health`
+
+**URL:** `http://localhost:8000/api/v1/health`
+
+**Description:** Basic API liveness check.
+
+**Response:**
+```json
+{
+  "status": "ok"
+}
+```
 
 ---
 
@@ -88,33 +116,33 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-text" \
 
 ---
 
-### 3. Enhance Image Prompt
+### 3. Suggest Hashtags
 
-**Endpoint:** `POST /enhance-image-prompt`
+**Endpoint:** `POST /suggest-hashtags`
 
-**URL:** `http://localhost:8000/api/v1/ai/enhance-image-prompt`
+**URL:** `http://localhost:8000/api/v1/ai/suggest-hashtags`
 
-**Description:** Enhance image generation prompts by adding details about composition, lighting, style, and quality markers.
+**Description:** Suggest up to 7 relevant hashtags for the provided tweet text.
 
 **Request Body:**
 ```json
 {
-  "prompt": "your basic image prompt"
+  "text": "your tweet text"
 }
 ```
 
 **Response:**
 ```json
 {
-  "enhanced": "Your detailed enhanced prompt with composition, lighting, and style details"
+  "hashtags": ["#AI", "#Tech", "#WebDev"]
 }
 ```
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
+curl -X POST "http://localhost:8000/api/v1/ai/suggest-hashtags" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "a cat sitting on a chair"}'
+  -d '{"text": "Building a tweet composer with AI tools"}'
 ```
 
 ---
@@ -125,32 +153,19 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
 
 **URL:** `http://localhost:8000/api/v1/ai/generate-image`
 
-**Description:** Generate an image using the Flux 2 Klein 4B model from OpenRouter. Optionally enhance the prompt before generation. The image is returned as base64 data for frontend storage and display.
+**Description:** Generate an image using the Flux 2 Klein 4B model from OpenRouter. The backend automatically enhances the prompt before generation, and returns image data suitable for frontend storage and display.
 
 **Request Body:**
 ```json
 {
-  "prompt": "your image generation prompt",
-  "enhance_prompt": false
+  "prompt": "your image generation prompt"
 }
 ```
 
 **Parameters:**
 - `prompt` (string, required): The image generation prompt
-- `enhance_prompt` (boolean, optional, default: false): If true, the prompt will be enhanced before image generation
 
-**Response (without enhancement):**
-```json
-{
-  "filename": "generated_20260323_123456_789012.png",
-  "image_data": "iVBORw0KGgoAAAANSUhEUgAA...",
-  "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-  "prompt": "your image generation prompt",
-  "original_prompt": null
-}
-```
-
-**Response (with enhancement):**
+**Response:**
 ```json
 {
   "filename": "generated_20260323_123456_789012.png",
@@ -165,21 +180,14 @@ curl -X POST "http://localhost:8000/api/v1/ai/enhance-image-prompt" \
 - `filename`: Suggested filename for the generated image (timestamp-based)
 - `image_data`: Base64-encoded image data (without data URL prefix)
 - `image_url`: Complete data URL that can be directly used in `<img>` tags or Canvas API
-- `prompt`: The actual prompt used for generation (enhanced if requested)
-- `original_prompt`: The original prompt before enhancement (only present when `enhance_prompt` is true)
+- `prompt`: The enhanced prompt used for generation
+- `original_prompt`: The original prompt before enhancement
 
-**Example (without enhancement):**
+**Example:**
 ```bash
 curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "a beautiful sunset over mountains"}'
-```
-
-**Example (with enhancement):**
-```bash
-curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "a cat", "enhance_prompt": true}'
 ```
 
 **Frontend Integration Guide:**
@@ -234,10 +242,10 @@ curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
 
 **Notes:**
 - Images are returned as base64-encoded PNG data
-- No backend storage required - handle storage on the frontend
+- During tweet creation, base64 data URLs are uploaded to storage and persisted as regular hosted URLs
 - Timeout: 120 seconds
-- The `prompt` field in the response contains the actual prompt used for generation (enhanced if `enhance_prompt` was true)
-- The `original_prompt` field will only be present when `enhance_prompt` is true
+- The `prompt` field in the response contains the enhanced prompt used for generation
+- The `original_prompt` field contains the original input prompt
 - Recommended to use IndexedDB for storing images in the browser to avoid localStorage size limitations
 
 ---
@@ -254,7 +262,7 @@ Base URL: `http://localhost:8000/api/v1/tweets`
 
 **URL:** `http://localhost:8000/api/v1/tweets`
 
-**Description:** Create a new tweet with optional media attachments. The tweet is stored in Supabase with all associated media items.
+**Description:** Create a new tweet with optional media attachments and optional poll. The tweet is stored in Supabase with all associated media and poll records.
 
 **Request Body:**
 ```json
@@ -268,7 +276,14 @@ Base URL: `http://localhost:8000/api/v1/tweets`
       "source": "ai",
       "alt_text": "Description of the image"
     }
-  ]
+  ],
+  "poll": {
+    "question": "Which feature should we ship first?",
+    "options": [
+      { "text": "AI images" },
+      { "text": "Poll scheduling" }
+    ]
+  }
 }
 ```
 
@@ -280,6 +295,10 @@ Base URL: `http://localhost:8000/api/v1/tweets`
   - `type` (string, required): Either "image" or "video"
   - `source` (string, required): Either "ai" (AI-generated) or "upload" (user uploaded)
   - `alt_text` (string, optional): Accessibility description
+- `poll` (object, optional): Poll to attach to the tweet
+  - `question` (string, required when poll provided): 1-280 chars
+  - `options` (array, required when poll provided): 2-4 options
+    - `text` (string, required): 1-100 chars
 
 **Response:**
 ```json
@@ -292,13 +311,29 @@ Base URL: `http://localhost:8000/api/v1/tweets`
     {
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "tweet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-      "url": "data:image/png;base64,iVBORw0KGgoAAAA...",
+      "url": "https://<project>.supabase.co/storage/v1/object/public/tweets/...png",
       "type": "image",
       "source": "ai",
       "alt_text": "Description of the image",
       "created_at": "2026-03-23T10:30:00.000Z"
     }
-  ]
+  ],
+  "poll": {
+    "id": "2d7b3ef4-39c8-4df2-9c9c-9cb87f2fb06b",
+    "tweet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "question": "Which feature should we ship first?",
+    "created_at": "2026-03-23T10:30:00.000Z",
+    "options": [
+      {
+        "id": "opt-1",
+        "poll_id": "2d7b3ef4-39c8-4df2-9c9c-9cb87f2fb06b",
+        "text": "AI images",
+        "position": 1,
+        "votes_count": 0,
+        "created_at": "2026-03-23T10:30:00.000Z"
+      }
+    ]
+  }
 }
 ```
 
@@ -349,7 +384,26 @@ curl "http://localhost:8000/api/v1/tweets/7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
 ---
 
-### 3. Get User Tweets
+### 3. Get Latest Tweets
+
+**Endpoint:** `GET /`
+
+**URL:** `http://localhost:8000/api/v1/tweets`
+
+**Description:** Get latest tweets across all users, ordered by creation date (newest first). Supports pagination.
+
+**Query Parameters:**
+- `limit` (integer, optional, default: 15): Maximum number of tweets to return (1-100)
+- `offset` (integer, optional, default: 0): Number of tweets to skip
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/tweets?limit=15&offset=0"
+```
+
+---
+
+### 4. Get User Tweets
 
 **Endpoint:** `GET /user/{user_id}`
 
@@ -395,7 +449,7 @@ curl "http://localhost:8000/api/v1/tweets/user/550e8400-e29b-41d4-a716-446655440
 
 ---
 
-### 4. Delete Tweet
+### 5. Delete Tweet
 
 **Endpoint:** `DELETE /{tweet_id}`
 
@@ -417,6 +471,32 @@ curl "http://localhost:8000/api/v1/tweets/user/550e8400-e29b-41d4-a716-446655440
 **Example:**
 ```bash
 curl -X DELETE "http://localhost:8000/api/v1/tweets/7c9e6679-7425-40de-944b-e07fc1f90ae7"
+```
+
+---
+
+### 6. Legacy Stub Tweet
+
+**Endpoint:** `POST /stub`
+
+**URL:** `http://localhost:8000/api/v1/tweets/stub`
+
+**Description:** Legacy non-persistent endpoint kept for backward compatibility.
+
+**Request Body:**
+```json
+{
+  "text": "Draft text"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "generated-uuid",
+  "text": "Draft text",
+  "message": "Stub response only. Persistence will be added later."
+}
 ```
 
 ---
@@ -612,6 +692,31 @@ curl -X DELETE "http://localhost:8000/api/v1/media/a1b2c3d4-e5f6-7890-abcd-ef123
 
 ---
 
+### 5. Get Tweet Media Metadata
+
+**Endpoint:** `GET /tweet/{tweet_id}/metadata`
+
+**URL:** `http://localhost:8000/api/v1/media/tweet/{tweet_id}/metadata`
+
+**Description:** Get metadata for all media items without returning full URL/blob content. Useful for debugging payload sizes and media diagnostics.
+
+**Response:**
+```json
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "tweet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "type": "image",
+    "source": "ai",
+    "alt_text": "Description",
+    "created_at": "2026-03-23T10:30:00.000Z",
+    "url_length": 128
+  }
+]
+```
+
+---
+
 ## Complete Workflow Example
 
 Here's a complete workflow showing how to generate an AI image and create a tweet with it:
@@ -620,7 +725,7 @@ Here's a complete workflow showing how to generate an AI image and create a twee
 ```bash
 curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "a sunset over mountains", "enhance_prompt": true}'
+  -d '{"prompt": "a sunset over mountains"}'
 ```
 
 **Response:** You'll get `image_url` and `image_data`
@@ -691,8 +796,7 @@ curl -X POST "http://localhost:8000/api/v1/media" \
 - **Body (JSON):**
   ```json
   {
-    "prompt": "a red apple",
-    "enhance_prompt": false
+    "prompt": "a red apple"
   }
   ```
 - **Save:** Copy the `image_url` from the response for next step

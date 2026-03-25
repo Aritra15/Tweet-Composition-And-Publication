@@ -19,8 +19,9 @@ export interface User {
 
 export interface TweetMedia {
   id: string;
-  type: 'image' | 'video' | 'gif';
+  type: 'image' | 'video';
   url: string;
+  source: 'upload' | 'ai';
 }
 
 export interface PollOption {
@@ -42,6 +43,35 @@ export interface TweetDraft {
 
 export interface Thread {
   tweets: TweetDraft[];
+}
+
+export interface FeedTweet {
+  id: string;
+  author: User;
+  text: string;
+  time: string;
+  likes: number;
+  replies: number;
+  reposts: number;
+  media: string[];
+  poll?: FeedPoll;
+}
+
+export interface FeedPollOption {
+  id: string;
+  text: string;
+  votesCount: number;
+}
+
+export interface FeedPoll {
+  question: string;
+  options: FeedPollOption[];
+}
+
+export interface FeedThread {
+  id: string;
+  isThread: true | false;
+  tweets: FeedTweet[];
 }
 
 export const AudienceType = {
