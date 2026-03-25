@@ -4,3 +4,4 @@ __pycache__/
 .env
 .pytest_cache/
 ai-images-storage/
+**.DS_Store**
