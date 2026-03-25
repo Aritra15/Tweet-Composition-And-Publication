@@ -32,7 +32,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
   const publishTweet = async (text: string, media: Array<TweetMedia>, poll?: Poll) => {
     const normalizedMedia = media.map((item) => ({
       url: item.url,
-      type: item.type === 'gif' ? 'image' : item.type,
+      type: item.type,
       source: item.source,
     }));
 
@@ -177,8 +177,6 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                         {tweet.media.length > 0 && (
                           <div className="mb-3 overflow-x-auto flex gap-2 py-1">
                             {tweet.media.map((media : TweetMedia, idx : number) => {
-                              const isHttpUrl = media.url.startsWith('https://') || media.url.startsWith('http://');
-                              const isGif = media.url.startsWith('data:image/gif');
                               const isVideo = media.url.startsWith('data:video/');
 
                               if (isVideo) {
@@ -195,11 +193,6 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                                     alt={`Tweet media ${idx + 1}`}
                                     className="w-full h-full object-cover"
                                   />
-                                  {isGif && !isHttpUrl && (
-                                    <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                      GIF
-                                    </div>
-                                  )}
                                 </div>
                               );
                             })}

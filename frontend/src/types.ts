@@ -19,7 +19,7 @@ export interface User {
 
 export interface TweetMedia {
   id: string;
-  type: 'image' | 'video' | 'gif';
+  type: 'image' | 'video';
   url: string;
   source: 'upload' | 'ai';
 }

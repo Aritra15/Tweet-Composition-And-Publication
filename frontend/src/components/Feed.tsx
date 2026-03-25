@@ -83,8 +83,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                       <div className="mb-3 overflow-x-auto flex gap-2 py-1">
                         {tweet.media.map((url: string, idx: number) => {
                           const isHttpUrl = url.startsWith('https://') || url.startsWith('http://');
-                          const isGif = url.startsWith('data:image/gif');
-                          const isVideo = url.startsWith('data:video/');
+                          const isVideo = url.startsWith('data:video/') || (isHttpUrl && /\.(mp4|webm|mov|avi)$/i.test(url)); 
 
                           if (isVideo) {
                             return <VideoPlayer key={idx} url={url} single={tweet.media.length === 1} headerRef={headerRef} />;
@@ -100,11 +99,6 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                                 alt={`Tweet media ${idx + 1}`}
                                 className="w-full h-full object-cover"
                               />
-                              {isGif && !isHttpUrl && (
-                                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                  GIF
-                                </div>
-                              )}
                             </div>
                           );
                         })}

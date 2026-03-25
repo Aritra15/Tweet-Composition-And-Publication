@@ -125,12 +125,10 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
             if (i !== activeTweetIndex) return t;
 
             const newMedia: TweetMedia[] = acceptedFiles.map((file, idx) => {
-                const mediaType: 'gif' | 'image' | 'video' =
+                const mediaType: 'image' | 'video' =
                     file.type.startsWith('video/')
                         ? 'video'
-                        : file.type === 'image/gif'
-                            ? 'gif'
-                            : 'image';
+                        : 'image';
                 return {
                     id: `${Date.now()}-${idx}`,
                     type: mediaType,
