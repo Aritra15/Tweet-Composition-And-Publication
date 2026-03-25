@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Avatar, TweetActions } from "./Shared";
 import type { FeedThread, FeedTweet } from "../types";
 import VideoPlayer from './VideoPlayer';
+import MediaLightbox from './MediaLightbox';
 
 interface FeedProps {
   tweetItems: FeedThread[],
@@ -14,6 +15,20 @@ interface FeedProps {
 const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef, handleOpenThread }) => {
   const tweetCount = isThreadOpen ? tweetItems[0].tweets.length : 2;
   const [selectedPollOptions, setSelectedPollOptions] = useState<Record<string, string>>({});
+  const [lightboxMedia, setLightboxMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+
+  const isVideoUrl = (url: string): boolean => {
+    const isHttpUrl = url.startsWith('https://') || url.startsWith('http://');
+    return url.startsWith('data:video/') || (isHttpUrl && /\.(mp4|webm|mov|avi)$/i.test(url));
+  };
+
+  const openLightbox = (url: string, type: 'image' | 'video') => {
+    setLightboxMedia({ url, type });
+  };
+
+  const closeLightbox = () => {
+    setLightboxMedia(null);
+  };
 
   const getPollBarWidth = (votesCount: number, totalVotes: number): string => {
     if (totalVotes === 0) {
@@ -82,28 +97,40 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                     {tweet.media.length > 0 && (
                       <div className="mb-3 overflow-x-auto flex gap-2 py-1">
                         {tweet.media.map((url: string, idx: number) => {
-                          const isHttpUrl = url.startsWith('https://') || url.startsWith('http://');
-                          const isVideo = url.startsWith('data:video/') || (isHttpUrl && /\.(mp4|webm|mov|avi)$/i.test(url)); 
+                          const isVideo = isVideoUrl(url);
+                          const single = tweet.media.length === 1;
 
                           if (isVideo) {
-                            return <VideoPlayer key={idx} url={url} single={tweet.media.length === 1} headerRef={headerRef} />;
+                            return (
+                              <VideoPlayer
+                                key={idx}
+                                url={url}
+                                single={single}
+                                headerRef={headerRef}
+                                onOpen={() => openLightbox(url, 'video')}
+                              />
+                            );
                           }
 
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={idx}
-                              className={`flex-shrink-0 relative ${tweet.media.length === 1 ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
+                              onClick={() => openLightbox(url, 'image')}
+                              onContextMenu={(event) => event.preventDefault()}
+                              className={`flex-shrink-0 relative p-0 bg-transparent cursor-zoom-in ${single ? 'max-h-[360px] max-w-[90%] w-fit' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
                             >
                               <img
                                 src={url}
                                 alt={`Tweet media ${idx + 1}`}
-                                className="w-full h-full object-cover"
+                                onContextMenu={(event) => event.preventDefault()}
+                                className={`${single ? "block max-h-[360px] w-auto h-auto" : "h-full w-full"} object-contain`}
                               />
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
-                  )}
+                    )}
 
                     {tweet.poll && (
                       <div className="w-[85%] mb-3 rounded-xl border border-app-border bg-app-card/20 p-3">
@@ -126,28 +153,27 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                                 className={`w-full text-left text-xs text-app-text ${canSelect && !hasVoted ? 'cursor-pointer' : 'cursor-default'}`}
                               >
                                 {canSelect && !hasVoted ? (
-                                    // Selectable — radio button, no count or bar
-                                    <div className="flex items-center justify-between py-1">
-                                        <span className="truncate pr-2">{option.text}</span>
-                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                            isSelected ? 'border-app-peach bg-app-peach' : 'border-app-muted'
-                                        }`}>
-                                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                                        </div>
+                                  // Selectable — radio button, no count or bar
+                                  <div className="flex items-center justify-between py-1">
+                                    <span className="truncate pr-2">{option.text}</span>
+                                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-app-peach bg-app-peach' : 'border-app-muted'
+                                      }`}>
+                                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                     </div>
+                                  </div>
                                 ) : (
-                                    // After voting or own tweet — show bar and count, highlight selected
-                                    <>
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className={`truncate pr-2 ${isSelected ? 'text-app-peach font-semibold' : ''}`}>
-                                                {option.text}
-                                            </span>
-                                            <span className="text-app-muted whitespace-nowrap">{option.votesCount}</span>
-                                        </div>
-                                        <div className="h-2 rounded-full bg-app-border overflow-hidden">
-                                            <div className={`h-full rounded-full ${isSelected ? 'bg-app-peach' : 'bg-app-muted/70'} ${getPollBarWidthClass(option.votesCount, totalVotes)}`} />
-                                        </div>
-                                    </>
+                                  // After voting or own tweet — show bar and count, highlight selected
+                                  <>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className={`truncate pr-2 ${isSelected ? 'text-app-peach font-semibold' : ''}`}>
+                                        {option.text}
+                                      </span>
+                                      <span className="text-app-muted whitespace-nowrap">{option.votesCount}</span>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-app-border overflow-hidden">
+                                      <div className={`h-full rounded-full ${isSelected ? 'bg-app-peach' : 'bg-app-muted/70'} ${getPollBarWidthClass(option.votesCount, totalVotes)}`} />
+                                    </div>
+                                  </>
                                 )}
                               </button>
                             );
@@ -173,6 +199,13 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
           </div>
         );
       })}
+
+      <MediaLightbox
+        isOpen={lightboxMedia !== null}
+        url={lightboxMedia?.url ?? null}
+        type={lightboxMedia?.type ?? null}
+        onClose={closeLightbox}
+      />
     </div>
   );
 }

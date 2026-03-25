@@ -178,20 +178,21 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                           <div className="mb-3 overflow-x-auto flex gap-2 py-1">
                             {tweet.media.map((media : TweetMedia, idx : number) => {
                               const isVideo = media.url.startsWith('data:video/');
+                              const single = tweet.media.length === 1;
 
                               if (isVideo) {
-                                return <VideoPlayer key={idx} url={media.url} single={tweet.media.length === 1} />;
+                                return <VideoPlayer key={idx} url={media.url} single={single} />;
                               }
 
                               return (
                                 <div
                                   key={idx}
-                                  className={`flex-shrink-0 relative ${tweet.media.length === 1 ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
+                                  className={`flex-shrink-0 relative ${single ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
                                 >
                                   <img
                                     src={media.url}
                                     alt={`Tweet media ${idx + 1}`}
-                                    className="w-full h-full object-cover"
+                                    className={`${single ? "block max-h-[360px] w-auto h-auto" : "h-full w-full"} object-contain`}
                                   />
                                 </div>
                               );

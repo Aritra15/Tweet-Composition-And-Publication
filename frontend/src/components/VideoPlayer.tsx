@@ -4,9 +4,10 @@ interface VideoPlayerProps {
     url: string;
     single: boolean;
     headerRef?: React.RefObject<HTMLElement | null>;
+    onOpen?: () => void;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, single, headerRef }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, single, headerRef, onOpen }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const progressBarRef = useRef<HTMLDivElement>(null);
     const [muted, setMuted] = useState(true);
@@ -102,6 +103,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, single, headerRef }) => 
         seekToPosition(e.clientX);
     };
 
+    const handleContainerClick = () => {
+        onOpen?.();
+    };
+
     // Handle drag going outside the bar
     useEffect(() => {
         if (!dragging) return;
@@ -158,18 +163,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, single, headerRef }) => 
     return (
         <div
             ref={containerRef}
-            className={`flex-shrink-0 relative ${single ? 'h-[360px] w-fit max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border bg-black`}
+            className={`flex-shrink-0 relative cursor-zoom-in ${single ? 'h-[360px] w-fit max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border bg-black`}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
+            onClick={handleContainerClick}
+            onContextMenu={(event) => event.preventDefault()}
         >
             <video
                 ref={videoRef}
                 src={url}
-                className="w-full h-full object-contain"
+                className={`${single ? "block max-h-[360px] w-auto h-auto" : "h-full w-full"} object-contain`}
                 autoPlay
                 loop
                 muted={muted}
                 playsInline
+                onContextMenu={(event) => event.preventDefault()}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
             />
