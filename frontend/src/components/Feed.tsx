@@ -1,110 +1,186 @@
+import { useState } from 'react';
 import { Avatar, TweetActions } from "./Shared";
+import type { FeedThread, FeedTweet } from "../types";
+import VideoPlayer from './VideoPlayer';
 
 interface FeedProps {
-    tweetItems: any,
-    handleOpenThread: (twts: any) => void
+  tweetItems: FeedThread[],
+  userId: string,
+  isThreadOpen: boolean,
+  headerRef: React.RefObject<HTMLElement | null>;
+  handleOpenThread: (twts: FeedThread) => void
 }
 
-const Feed: React.FC<FeedProps> = ({tweetItems, handleOpenThread}) => {
-    return (
-      <div className="flex flex-col">
-        {tweetItems.map((item: any) => {
-          if (item.isThread) {
-            return (
-              <div style={{display: "flex", flexDirection: "column"}} key={item.id} className="border-b border-app-border hover:bg-app-card/30 transition-colors cursor-pointer">
-                <div key={item.id} className="border-b border-app-border hover:bg-app-card/10 transition-colors pb-2">
-                  {item.tweets.slice(0, 2).map((tweet: any, index: number) => (
-                    <article key={tweet.id} className="p-4 relative">
-                      {index < 1 && (
-                        <div className="absolute left-[38px] top-[60px] bottom-[-20px] w-0.5 bg-app-border" />
-                      )}
-                      <div className="flex gap-3">
-                        <div className="shrink-0 z-10">
-                          <Avatar src={tweet.author.avatar} alt={tweet.author.name} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="font-bold text-app-text truncate">{tweet.author.name}</span>
-                            <span className="text-app-muted truncate">{tweet.author.handle}</span>
-                            <span className="text-app-muted text-sm">· {tweet.time}</span>
-                          </div>
-                          <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">
-                            {tweet.content}
-                          </p>
+const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef, handleOpenThread }) => {
+  const tweetCount = isThreadOpen ? tweetItems[0].tweets.length : 2;
+  const [selectedPollOptions, setSelectedPollOptions] = useState<Record<string, string>>({});
 
-                          {tweet.media.length > 0 && (
-                            <div className="mb-3 overflow-x-auto flex gap-2 py-1">
-                              {tweet.media.map((url: string, idx: number) => (
-                                <div key={idx} className="flex-shrink-0 w-64 h-64 rounded-2xl overflow-hidden border border-app-border">
-                                  <img
-                                    src={url}
-                                    alt={`Tweet media ${idx + 1}`}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
+  const getPollBarWidth = (votesCount: number, totalVotes: number): string => {
+    if (totalVotes === 0) {
+      return '0%';
+    }
 
-                          <TweetActions likes={tweet.likes} replies={tweet.replies} reposts={tweet.reposts} />
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
+    return `${Math.max(4, Math.round((votesCount / totalVotes) * 100))}%`;
+  };
 
-                {item.tweets.length > 2 && (
-                  <div 
-                    onClick={() => handleOpenThread(item.tweets)}
-                    className="text-app-muted px-4 pb-3 hover:font-bold text-sm font-medium" style={{padding: "8px 16px 8px 16px", display: "flex", justifyContent: "center", alignItems: "center"}}
-                  >
-                    See more
-                  </div>
+  const getPollBarWidthClass = (votesCount: number, totalVotes: number): string => {
+    const widthPercent = Number.parseInt(getPollBarWidth(votesCount, totalVotes), 10);
+
+    if (widthPercent >= 100) return 'w-full';
+    if (widthPercent >= 92) return 'w-11/12';
+    if (widthPercent >= 84) return 'w-10/12';
+    if (widthPercent >= 75) return 'w-9/12';
+    if (widthPercent >= 67) return 'w-8/12';
+    if (widthPercent >= 59) return 'w-7/12';
+    if (widthPercent >= 50) return 'w-6/12';
+    if (widthPercent >= 42) return 'w-5/12';
+    if (widthPercent >= 34) return 'w-4/12';
+    if (widthPercent >= 25) return 'w-3/12';
+    if (widthPercent >= 17) return 'w-2/12';
+    if (widthPercent > 0) return 'w-1/12';
+
+    return 'w-0';
+  };
+
+  const handlePollOptionClick = (tweetId: string, optionId: string) => {
+    setSelectedPollOptions((prev) => {
+      if (prev[tweetId]) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [tweetId]: optionId,
+      };
+    });
+  };
+
+  return (
+    <div className="flex flex-col">
+      {tweetItems.map((item, i) => {
+        return (
+          <div key={item.id} className={"flex flex-col hover:bg-app-card/30 transition-colors cursor-pointer" + (i === tweetItems.length - 1 ? "" : " border-b border-[#575757]")}>
+            {item.tweets.slice(0, tweetCount).map((tweet: FeedTweet, index: number) => (
+              <article key={tweet.id} className={"p-4 relative"}>
+                {item.tweets.length !== 1 && index < tweetCount - 1 && (
+                  <div className="absolute left-[38px] top-[60px] bottom-[-20px] w-0.5 bg-[#575757]" />
                 )}
-              </div>
-            );
-          }
-
-          const tweet = item;
-          return (
-            <article key={tweet.id} className="border-b border-app-border p-4 hover:bg-app-card/30 transition-colors cursor-pointer">
-              <div className="flex gap-3">
-                <div className="shrink-0">
-                  <Avatar src={tweet.author.avatar} alt={tweet.author.name} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="font-bold text-app-text truncate">{tweet.author.name}</span>
-                    <span className="text-app-muted truncate">{tweet.author.handle}</span>
-                    <span className="text-app-muted text-sm">· {tweet.time}</span>
+                <div className="flex gap-3">
+                  <div className="shrink-0 z-10">
+                    <Avatar src={tweet.author.avatar} alt={tweet.author.name} />
                   </div>
-                  
-                  <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap mb-3">
-                    {tweet.content}
-                  </p>
-
-                  {tweet.media.length > 0 && (
-                    <div className="mb-3 overflow-x-auto flex gap-2 py-1">
-                      {tweet.media.map((url: string, idx: number) => (
-                        <div key={idx} className="flex-shrink-0 h-[160px] rounded-xl overflow-hidden border border-app-border">
-                          <img
-                            src={url}
-                            alt={`Tweet media ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="font-bold text-app-text truncate">{tweet.author.name}</span>
+                      <span className="text-app-muted truncate">{tweet.author.handle}</span>
+                      <span className="text-app-muted text-sm">· {tweet.time}</span>
                     </div>
+                    <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">
+                      {tweet.text}
+                    </p>
+
+                    {tweet.media.length > 0 && (
+                      <div className="mb-3 overflow-x-auto flex gap-2 py-1">
+                        {tweet.media.map((url: string, idx: number) => {
+                          const isHttpUrl = url.startsWith('https://') || url.startsWith('http://');
+                          const isGif = url.startsWith('data:image/gif');
+                          const isVideo = url.startsWith('data:video/');
+
+                          if (isVideo) {
+                            return <VideoPlayer key={idx} url={url} single={tweet.media.length === 1} headerRef={headerRef} />;
+                          }
+
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex-shrink-0 relative ${tweet.media.length === 1 ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
+                            >
+                              <img
+                                src={url}
+                                alt={`Tweet media ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              {isGif && !isHttpUrl && (
+                                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                  GIF
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                   )}
 
-                  <TweetActions likes={tweet.likes} replies={tweet.replies} reposts={tweet.reposts} />
+                    {tweet.poll && (
+                      <div className="w-[85%] mb-3 rounded-xl border border-app-border bg-app-card/20 p-3">
+                        <p className="text-sm font-semibold text-app-text mb-2">{tweet.poll.question}</p>
+                        <div className="space-y-2">
+                          {tweet.poll.options.map((option) => {
+                            const totalVotes = tweet.poll?.options.reduce((sum, o) => sum + o.votesCount, 0) ?? 0;
+                            const selectedOptionId = selectedPollOptions[tweet.id];
+                            const isSelected = selectedOptionId === option.id;
+                            const isMockUserTweet = tweet.author.id === userId;
+                            const canSelect = !isMockUserTweet;
+                            const hasVoted = !!selectedPollOptions[tweet.id];
+
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => canSelect && !hasVoted && handlePollOptionClick(tweet.id, option.id)}
+                                disabled={!canSelect || hasVoted}
+                                className={`w-full text-left text-xs text-app-text ${canSelect && !hasVoted ? 'cursor-pointer' : 'cursor-default'}`}
+                              >
+                                {canSelect && !hasVoted ? (
+                                    // Selectable — radio button, no count or bar
+                                    <div className="flex items-center justify-between py-1">
+                                        <span className="truncate pr-2">{option.text}</span>
+                                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                            isSelected ? 'border-app-peach bg-app-peach' : 'border-app-muted'
+                                        }`}>
+                                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // After voting or own tweet — show bar and count, highlight selected
+                                    <>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className={`truncate pr-2 ${isSelected ? 'text-app-peach font-semibold' : ''}`}>
+                                                {option.text}
+                                            </span>
+                                            <span className="text-app-muted whitespace-nowrap">{option.votesCount}</span>
+                                        </div>
+                                        <div className="h-2 rounded-full bg-app-border overflow-hidden">
+                                            <div className={`h-full rounded-full ${isSelected ? 'bg-app-peach' : 'bg-app-muted/70'} ${getPollBarWidthClass(option.votesCount, totalVotes)}`} />
+                                        </div>
+                                    </>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <TweetActions likes={tweet.likes} replies={tweet.replies} reposts={tweet.reposts} />
+                  </div>
                 </div>
+              </article>
+            ))}
+
+            {!isThreadOpen && item.tweets.length > 2 && (
+              <div
+                onClick={() => handleOpenThread(item)}
+                className="text-app-muted border-t border-[#575757] flex justify-center items-center pt-[8px] pr-[16px] pb-[8px] pl-[16px] hover:font-bold text-sm font-medium"
+              >
+                See more
               </div>
-            </article>
-          );
-        })}
-      </div>
-    );
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default Feed;

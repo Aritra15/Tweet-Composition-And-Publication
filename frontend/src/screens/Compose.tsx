@@ -1,8 +1,8 @@
-import React, { useState, useRef} from 'react';
-import { Image, Globe, Plus, CheckCircle, Lock, AlertTriangle, Users, Wand2, Hash } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Image, Globe, Plus, CheckCircle, Lock, AlertTriangle, Users, Wand2, Hash, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { type Thread, type TweetDraft, type TweetMedia, type User, AudienceType } from '../types';
-import { Button, BottomSheet, Toggle, Input } from '../components/Shared';
+import { Button, BottomSheet, Toggle, Input, Toast } from '../components/Shared';
 import { EmojiPicker } from '../components/EmojiPicker';
 import CompositionArea from '../components/CompositionArea';
 
@@ -10,14 +10,19 @@ interface ComposeProps {
     onBack: () => void;
     onNext: (thread: Thread) => void;
     currentUser: User;
+    initialThread?: Thread | null;
 }
 
+const API_BASE_URL = 'http://localhost:8000';
+const MAX_MEDIA_PER_TWEET = 4;
+const MAX_VIDEO_PER_TWEET = 1;
 
-
-export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentUser }) => {
-    const [tweets, setTweets] = useState<TweetDraft[]>([
-        { id: '1', text: '', media: [] }
-    ]);
+export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentUser, initialThread }) => {
+    const [tweets, setTweets] = useState<TweetDraft[]>(
+        initialThread?.tweets?.length
+            ? initialThread.tweets
+            : [{ id: '1', text: '', media: [] }]
+    );
     const [activeTweetIndex, setActiveTweetIndex] = useState(0);
 
     // Audience Settings
@@ -38,7 +43,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
     const [imgLoading, setImgLoading] = useState(false);
     const [hashtagsLoading, setHashtagsLoading] = useState(false);
     const [enhancedText, setEnhancedText] = useState('');
-    const [generatedImage, setGeneratedImage] = useState('');
+    const [generatedImages, setGeneratedImages] = useState<string[]>([]);
     const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([]);
     const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
 
@@ -50,24 +55,87 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
     const aiActionRef = useRef<HTMLDivElement | null>(null);
     const audienceActionRef = useRef<HTMLButtonElement | null>(null);
     const [isMediaDragActive, setIsMediaDragActive] = useState(false);
+    const [mediaToastMessage, setMediaToastMessage] = useState<string | null>(null);
 
-    // empty array = runs once on mount
+    const showMediaToast = (message: string) => {
+        setMediaToastMessage(message);
+        window.setTimeout(() => setMediaToastMessage(null), 2500);
+    };
 
-    
+    const fileToDataUrl = (file: File): Promise<string> =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            reader.readAsDataURL(file);
+        });
 
-    const handleAddMediaFiles = (files: FileList | File[]) => {
-        const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
-        if (imageFiles.length === 0) return;
+    const handleAddMediaFiles = async (files: FileList | File[]) => {
+        const activeTweet = tweets[activeTweetIndex];
+        if (!activeTweet) return;
+
+        const supportedFiles = Array.from(files).filter((file) =>
+            file.type.startsWith('image/') || file.type.startsWith('video/')
+        );
+        if (supportedFiles.length === 0) {
+            showMediaToast('Only image and video files are supported.');
+            return;
+        }
+
+        const availableSlots = MAX_MEDIA_PER_TWEET - activeTweet.media.length;
+        if (availableSlots <= 0) {
+            showMediaToast(`You can upload up to ${MAX_MEDIA_PER_TWEET} media files.`);
+            setActiveSheet(null);
+            return;
+        }
+
+        const existingVideoCount = activeTweet.media.filter((media) => media.type === 'video').length;
+        const acceptedFiles: File[] = [];
+        let videoCount = existingVideoCount;
+        let skippedMedia = 0;
+        let skippedVideos = 0;
+
+        for (const file of supportedFiles) {
+            if (acceptedFiles.length >= availableSlots) {
+                skippedMedia += 1;
+                continue;
+            }
+
+            const isVideo = file.type.startsWith('video/');
+            if (isVideo && videoCount >= MAX_VIDEO_PER_TWEET) {
+                skippedVideos += 1;
+                continue;
+            }
+
+            acceptedFiles.push(file);
+            if (isVideo) {
+                videoCount += 1;
+            }
+        }
+
+        if (acceptedFiles.length === 0) {
+            showMediaToast('Only one video is allowed per tweet.');
+            setActiveSheet(null);
+            return;
+        }
+
+        const mediaDataUrls = await Promise.all(acceptedFiles.map((file) => fileToDataUrl(file)));
 
         setTweets((prev) => prev.map((t, i) => {
             if (i !== activeTweetIndex) return t;
 
-            const newMedia: TweetMedia[] = imageFiles.map((file, idx) => {
-                const mediaType: 'gif' | 'image' = file.type === 'image/gif' ? 'gif' : 'image';
+            const newMedia: TweetMedia[] = acceptedFiles.map((file, idx) => {
+                const mediaType: 'gif' | 'image' | 'video' =
+                    file.type.startsWith('video/')
+                        ? 'video'
+                        : file.type === 'image/gif'
+                            ? 'gif'
+                            : 'image';
                 return {
                     id: `${Date.now()}-${idx}`,
                     type: mediaType,
-                    url: URL.createObjectURL(file),
+                    url: mediaDataUrls[idx],
+                    source: 'upload',
                 };
             });
 
@@ -75,11 +143,18 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
         }));
 
         setActiveSheet(null);
+
+        if (skippedMedia > 0 || skippedVideos > 0) {
+            const parts: string[] = [];
+            if (skippedMedia > 0) parts.push(`max ${MAX_MEDIA_PER_TWEET} media allowed`);
+            if (skippedVideos > 0) parts.push('only one video allowed');
+            showMediaToast(`Some files were skipped: ${parts.join(', ')}.`);
+        }
     };
 
     const handleMediaInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            handleAddMediaFiles(e.target.files);
+            void handleAddMediaFiles(e.target.files);
             e.target.value = '';
         }
     };
@@ -98,7 +173,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
         e.preventDefault();
         setIsMediaDragActive(false);
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            handleAddMediaFiles(e.dataTransfer.files);
+            void handleAddMediaFiles(e.dataTransfer.files);
         }
     };
 
@@ -124,7 +199,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
     // AI Actions
     const handleUseEnhancedText = async () => {
         setTextLoading(true);
-        const response = await fetch("http://localhost:8000/api/v1/ai/enhance-text", {
+        const response = await fetch(`${API_BASE_URL}/api/v1/ai/enhance-text`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: tweets[activeTweetIndex].text })
@@ -138,16 +213,36 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
     };
 
     const handleGenerateImage = async () => {
-        setImgLoading(true);
-        const response = await fetch("http://localhost:8000/api/v1/ai/generate-image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: imagePrompt })
-        });
+        const activeTweet = tweets[activeTweetIndex];
+        const availableSlots = activeTweet ? Math.max(0, MAX_MEDIA_PER_TWEET - activeTweet.media.length) : 0;
+        if (availableSlots == 0) {
+            showMediaToast(`Only ${MAX_MEDIA_PER_TWEET} media files are allowed per tweet.`);
+            return;
+        }
 
-        const data = await response.json();
-        setGeneratedImage(data.image_url);
-        setImgLoading(false);
+        setImgLoading(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/ai/generate-image`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: imagePrompt })
+            });
+
+            if (!response.ok) {
+                showMediaToast('Failed to generate image. Please try again.');
+                setImgLoading(false);
+                return;
+            }
+
+            const data = await response.json();
+            setGeneratedImages(prev => [...prev, data.image_url]);
+            setImagePrompt('');
+        } catch (error) {
+            showMediaToast('Error generating image. Please try again.');
+            console.error('Image generation error:', error);
+        } finally {
+            setImgLoading(false);
+        }
     };
 
     const handleHashtagSuggestions = async (text: string) => {
@@ -158,7 +253,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
         }
 
         setHashtagsLoading(true);
-        const response = await fetch("http://localhost:8000/api/v1/ai/suggest-hashtags", {
+        const response = await fetch(`${API_BASE_URL}/api/v1/ai/suggest-hashtags`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text })
@@ -192,28 +287,31 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
         }
     }
 
-    const onAiToolsClose = () => {
-        setTweets(prev => prev.map((t, i) => {
-            if (i !== activeTweetIndex) return t;
+    const onAiToolsClose = (op : string) => {
+        if (op === 'save') {
+            console.log('Saving AI enhancements:');
+            setTweets(prev => prev.map((t, i) => {
+                if (i !== activeTweetIndex) return t;
 
-            const updatedText = enhancedText ? appendSelectedHashtags(enhancedText) : t.text;
-            const updatedMedia = generatedImage
-                ? [...t.media, { id: Date.now().toString(), type: 'image' as const, url: generatedImage }]
-                : t.media;
+                const updatedText = enhancedText ? appendSelectedHashtags(enhancedText) : t.text;
+                const updatedMedia = generatedImages.length > 0 ? [...t.media, ...generatedImages.map((url, idx): TweetMedia => ({
+                    id: `ai-generated-${Date.now()}-${idx}`,
+                    type: 'image',
+                    url,
+                    source: 'ai',
+                }))] : t.media;
 
-            return { ...t, text: updatedText, media: updatedMedia };
-        }));
+                return { ...t, text: updatedText, media: updatedMedia };
+            }));
+        }
 
         setEnhancedText('');
         setImagePrompt('');
-        setGeneratedImage('');
+        setGeneratedImages([]);
         setSuggestedHashtags([]);
         setSelectedHashtags([]);
         setActiveSheet(null);
     }
-
-
-
 
     const getSheetAnchor = () => {
         if (activeSheet === 'media') return mediaActionRef;
@@ -263,11 +361,11 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                     <input
                         ref={mediaInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/*,video/*"
                         multiple
                         className="hidden"
-                        aria-label="Upload images from device"
-                        title="Upload images from device"
+                        aria-label="Upload media from device"
+                        title="Upload media from device"
                         onChange={handleMediaInputChange}
                     />
 
@@ -280,9 +378,9 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                             : 'border-white/20 bg-black/20'
                             }`}
                     >
-                        <p className="text-white font-semibold">Drag and drop images here</p>
-                        <p className="text-white/60 text-sm mt-1">or choose files from your device</p>
-                        <br/><br/>
+                        <p className="text-white font-semibold">Drag and drop media here</p>
+                        <p className="text-white/60 text-sm mt-1">or choose image/video files from your device</p>
+                        <br /><br />
                         <Button
                             variant="secondary"
                             size="sm"
@@ -293,7 +391,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                         </Button>
                     </div>
 
-                    <p className="text-xs text-white/55 text-center">Supports multiple image uploads</p>
+                    <p className="text-xs text-white/55 text-center">Up to 4 media per tweet, with at most 1 video</p>
                 </div>
             </BottomSheet>
 
@@ -304,6 +402,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                 title="Emojis"
                 floating
                 anchorRef={getSheetAnchor()}
+                horizontalOffset={-252}
+                verticalOffset={104}
                 panelClassName="bg-[#17191d]"
             >
                 <EmojiPicker onSelect={handleAddEmoji} />
@@ -412,8 +512,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
             <BottomSheet
                 isOpen={activeSheet === 'ai'}
                 onOpen={onAiToolsOpen}
-                onClose={onAiToolsClose}
-                onCancel={() => setActiveSheet(null)}
+                onClose={() => onAiToolsClose('save')}
+                onCancel={() => onAiToolsClose('cancel')}
                 title="AI Tools"
                 floating
                 anchorRef={getSheetAnchor()}
@@ -447,13 +547,23 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                             placeholder="Describe the image you want..."
                             className="text-sm h-10"
                         />
-                        {generatedImage && (
-                            <div className="mt-3 w-full flex justify-center">
-                                <img
-                                    src={generatedImage}
-                                    alt="Generated"
-                                    className="max-w-full max-h-64 rounded-md object-cover border border-app-border"
-                                />
+                        {generatedImages.length > 0 && (
+                            <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                                {generatedImages.map((url, id) => (
+                                    <div key={id} className="w-24 h-24 rounded-xl bg-black/30 relative shrink-0">
+                                        <img aria-label="Close" src={url} className="w-full h-full object-cover rounded-xl" />
+                                        <button
+                                            aria-label="Close"
+                                            className="absolute top-1 right-1 bg-black/50 p-1 rounded-full text-white"
+                                            onClick={() => {
+                                                const newMedia = generatedImages.filter((_, idx) => idx !== id);
+                                                setGeneratedImages(newMedia);
+                                            }}
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         )}
                         <Button variant="secondary" size="sm" onClick={handleGenerateImage} disabled={!imagePrompt.trim() || textLoading || imgLoading} className="w-full">
@@ -474,7 +584,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                             size="sm"
                             onClick={() => handleHashtagSuggestions(enhancedText)}
                             disabled={!enhancedText.trim() || hashtagsLoading || textLoading || imgLoading}
-                            className="w-full disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full"
                         >
                             {hashtagsLoading ? 'Generating hashtags...' : 'Generate Hashtags'}
                         </Button>
@@ -508,6 +618,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                     </div>
                 </div>
             </BottomSheet>
+
+            {mediaToastMessage && <Toast message={mediaToastMessage} type="error" className="z-[90]" />}
         </motion.div>
     );
 };

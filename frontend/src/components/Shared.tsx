@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { type LucideIcon, MessageCircle, Repeat, Heart, Share } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 
 // --- Colors ---
 // Using Tailwind classes defined in index.html config:
@@ -27,7 +27,7 @@ export const Button = ({
 
   const variants = {
     primary: "bg-app-peach text-app-bg hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-app-peach/10",
-    secondary: "bg-transparent border border-app-lavender text-app-lavender hover:bg-app-lavender/10 disabled:opacity-50",
+    secondary: "bg-transparent border border-app-lavender text-app-lavender hover:bg-app-lavender/10 disabled:opacity-50 disabled:cursor-not-allowed",
     ghost: "text-app-muted hover:text-app-text hover:bg-app-elevated/50",
     destructive: "text-app-error hover:bg-app-error/10",
     icon: "p-2 hover:bg-app-elevated text-app-peach rounded-full",
@@ -60,7 +60,7 @@ export const Avatar = ({ src, alt, size = 'md' }: { src: string; alt: string; si
   const sizeClass = {
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
-    lg: 'w-14 h-14',
+    lg: 'w-12 h-12',
   }[size];
 
   return (
@@ -115,8 +115,8 @@ export const Chip: React.FC<{ label: string; active?: boolean; icon?: LucideIcon
     <button
       onClick={onClick}
       className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 transition-colors ${active
-          ? 'bg-app-peach text-app-bg'
-          : 'border border-app-border text-app-muted hover:border-app-lavender hover:text-app-text'
+        ? 'bg-app-peach text-app-bg'
+        : 'border border-app-border text-app-muted hover:border-app-lavender hover:text-app-text'
         }`}
     >
       {Icon && <Icon size={14} />}
@@ -125,9 +125,8 @@ export const Chip: React.FC<{ label: string; active?: boolean; icon?: LucideIcon
   );
 };
 
-export const Toast = ({ message, type = 'success' }: { message: string; type?: 'success' | 'error' }) => (
-  <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl backdrop-blur-md shadow-2xl z-50 flex items-center gap-3 animate-fade-in-up ${type === 'success' ? 'bg-app-elevated/90 border border-app-lime/30 text-app-lime' : 'bg-app-elevated/90 border border-app-error/30 text-app-error'
-    }`}>
+export const Toast = ({ message, type = 'success', className = '' }: { message: string; type?: 'success' | 'error'; className?: string }) => (
+  <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl backdrop-blur-md shadow-2xl z-50 flex items-center gap-3 animate-fade-in-up ${type === 'success' ? 'bg-app-elevated/90 border border-app-lime/30 text-app-lime' : 'bg-app-elevated/90 border border-app-error/30 text-app-error'} ${className}`}>
     <div className={`w-2 h-2 rounded-full ${type === 'success' ? 'bg-app-lime' : 'bg-app-error'}`} />
     <span className="text-app-text font-medium">{message}</span>
   </div>
@@ -152,6 +151,8 @@ export const BottomSheet = ({
   onCancel,
   anchorRef,
   floating = false,
+  horizontalOffset = 0,
+  verticalOffset = 0,
   panelClassName = '',
   children,
   title
@@ -162,11 +163,21 @@ export const BottomSheet = ({
   onCancel?: () => void;
   anchorRef?: React.RefObject<HTMLElement | null>;
   floating?: boolean;
+  horizontalOffset?: number;
+  verticalOffset?: number;
   panelClassName?: string;
   children?: React.ReactNode;
   title: string;
 }) => {
   const [position, setPosition] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+  const dragControls = useDragControls();
+  const handleBackdropClose = () => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+    onClose();
+  };
 
   useLayoutEffect(() => {
     if (!isOpen || !floating) return;
@@ -183,14 +194,16 @@ export const BottomSheet = ({
       const availableHeight = Math.max(window.innerHeight - viewportPadding * 2, 280);
       const maxHeight = Math.min(availableHeight, 520);
 
-      let left = rect.left + (rect.width / 2) - (panelWidth / 2);
+      let left = rect.left + (rect.width / 2) - (panelWidth / 2) + horizontalOffset;
       left = Math.max(viewportPadding, left);
       left = Math.min(window.innerWidth - panelWidth - viewportPadding, left);
 
       const preferTop = rect.top - maxHeight - 12;
-      const top = preferTop >= viewportPadding
+      let top = preferTop >= viewportPadding
         ? preferTop
         : Math.min(rect.bottom + 12, window.innerHeight - maxHeight - viewportPadding);
+      top = Math.max(viewportPadding, Math.min(top, window.innerHeight - maxHeight - viewportPadding));
+      top += verticalOffset;
 
       setPosition({ top, left, maxHeight });
     };
@@ -203,7 +216,7 @@ export const BottomSheet = ({
       window.removeEventListener('resize', computePosition);
       window.removeEventListener('scroll', computePosition, true);
     };
-  }, [isOpen, floating, anchorRef]);
+  }, [isOpen, floating, anchorRef, horizontalOffset, verticalOffset]);
 
   useEffect(() => {
     if (isOpen) {
@@ -220,13 +233,18 @@ export const BottomSheet = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className={`fixed inset-0 z-[60] ${floating ? 'bg-black/25 backdrop-blur-[1px]' : 'bg-black/60'}`}
-            onClick={onCancel ? onCancel : onClose}
+            onPointerDown={handleBackdropClose}
           />
           <motion.div
             initial={floating ? { opacity: 0, scale: 0.94, y: 8 } : { y: '100%' }}
             animate={floating ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
             exit={floating ? { opacity: 0, scale: 0.94, y: 8 } : { y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            drag={floating ? true : 'y'}
+            dragControls={dragControls}
+            dragListener={false}
+            dragMomentum={false}
+            dragElastic={0.12}
             style={floating ? {
               top: position?.top ?? 80,
               left: position?.left ?? 12,
@@ -237,12 +255,16 @@ export const BottomSheet = ({
               ? 'bg-app-elevated rounded-2xl'
               : 'bottom-0 left-0 right-0 bg-app-elevated rounded-t-3xl max-h-[85vh] border-t border-app-border/50'} ${panelClassName}`}
           >
-            <div className={`sticky top-0 bg-app-elevated/95 backdrop-blur z-10 px-5 pt-3 pb-2 flex items-center justify-between border-b border-app-border/30 ${floating ? 'rounded-t-2xl' : ''}`}>
+            <div
+              onPointerDown={(event) => dragControls.start(event)}
+              className={`sticky top-0 bg-app-elevated/95 backdrop-blur z-10 px-5 pt-3 pb-2 flex items-center justify-between border-b border-app-border/30 select-none touch-none cursor-grab active:cursor-grabbing ${floating ? 'rounded-t-2xl' : ''}`}
+            >
               <div className="w-12" />
               {/* Handle bar */}
               {!floating && <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-app-border" />}
               <h3 className={`text-lg font-bold text-app-text ${floating ? '' : 'mt-2'}`}>{title}</h3>
               <button
+                onPointerDown={(event) => event.stopPropagation()}
                 onClick={onClose}
                 className="px-3 py-1.5 -mr-2 text-sm font-semibold text-app-peach hover:text-app-text"
               >
@@ -260,7 +282,7 @@ export const BottomSheet = ({
 };
 
 export const TweetActions = ({ likes, replies, reposts }: { likes: number, replies: number, reposts: number }) => (
-  <div className="flex items-center justify-between text-app-muted max-w-md pr-4 mt-3">
+  <div className="flex items-center justify-between text-app-muted max-w-md mt-3">
     <button className="flex items-center gap-1.5 group hover:text-app-peach transition-colors">
       <MessageCircle size={18} className="group-hover:stroke-app-peach" />
       <span className="text-xs">{replies}</span>

@@ -19,6 +19,31 @@ async def create_tweet(payload: TweetCreate) -> TweetResponse:
     return await tweet_service.create_tweet(payload)
 
 
+@router.get("", response_model=list[TweetResponse])
+async def get_latest_tweets(
+    limit: int = Query(default=15, ge=1, le=100),
+    offset: int = Query(default=0, ge=0)
+) -> list[TweetResponse]:
+    """
+    Get latest tweets across all users, ordered by creation date (newest first).
+
+    - **limit**: Maximum number of tweets to return (1-100, default: 15)
+    - **offset**: Number of tweets to skip (for pagination, default: 0)
+    """
+    return await tweet_service.get_latest_tweets(limit, offset)
+
+
+# @router.post("/thread", response_model=ThreadResponse, status_code=status.HTTP_201_CREATED)
+# async def create_thread(payload: ThreadCreate) -> ThreadResponse:
+#     """
+#     Publish a thread in one request.
+
+#     - **user_id**: UUID of the user creating the thread
+#     - **tweets**: Ordered list of tweets in the thread (minimum 2)
+#     """
+#     return await tweet_service.create_thread(payload)
+
+
 @router.get("/{tweet_id}", response_model=TweetResponse)
 async def get_tweet(tweet_id: str) -> TweetResponse:
     """

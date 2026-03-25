@@ -23,33 +23,31 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect }) => {
             picker.style.width = '100%';
             picker.style.minWidth = '100%';
             picker.style.maxWidth = '100%';
-            picker.style.height = '350px';
-            picker.style.minHeight = '350px';
-            picker.style.maxHeight = '350px';
             picker.style.border = 'none';
         }
     }, []);
 
     return (
-        <div className="w-full rounded-2xl border border-app-border bg-app-card overflow-hidden">
-            <div ref={containerRef} className="w-full">
-                <Picker
-                    data={data}
-                    onEmojiSelect={handleEmojiSelect}
-                    theme="dark"
-                    set="native"
-                    locale="en"
-                    navPosition="bottom"
-                    previewPosition="none"
-                    searchPosition="sticky"
-                    skinTonePosition="search"
-                    maxFrequentRows={2}
-                    perLine={10}
-                    emojiSize={24}
-                    emojiButtonSize={38}
-                    dynamicWidth={true}
-                    icons="solid"
-                />
+        <div className="w-full rounded-2xl border border-app-border bg-app-card overflow-hidden h-[300px]">
+            <div ref={containerRef} className="w-full h-full">
+            <Picker
+                data={data}
+                onEmojiSelect={handleEmojiSelect}
+                theme="dark"
+                set="native"
+                locale="en"
+                navPosition="bottom"
+                previewPosition="none"
+                searchPosition="sticky"
+                skinTonePosition="search"
+                maxFrequentRows={2}
+                perLine={10}
+                emojiSize={24}
+                emojiButtonSize={38}
+                dynamicWidth={false}
+                icons="solid"
+                style={{ height: "100%" }}   // 👈 IMPORTANT
+            />
             </div>
         </div>
     );

@@ -1,6 +1,6 @@
 import { Reorder } from "framer-motion";
-import { Image, BarChart2, Feather, Globe, GripVertical, Plus, Smile, Sparkles, Trash2, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Image, BarChart2, Feather, Globe, GripVertical, Plus, Smile, Sparkles, Trash2, X, Play } from "lucide-react";
+import { useRef } from "react";
 import { Avatar, Button } from "./Shared";
 import type { TweetDraft, User } from "../types";
 
@@ -24,16 +24,7 @@ interface CompositionAreaProps {
 }
 
 const CompositionArea: React.FC<CompositionAreaProps> = ({onBack, onNext, currentUser, tweets, setTweets, activeTweetIndex, setActiveTweetIndex, setActiveSheet, audience, mediaActionRef, emojiActionRef, pollActionRef, aiActionRef, audienceActionRef}) => {
-    const containerRef = useRef<HTMLDivElement>(null);
-
     const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
-
-    useEffect(() => {
-        if (containerRef.current) {
-            const height = containerRef.current.offsetHeight;
-            containerRef.current.style.minHeight = `${height}px`; // min not fixed
-        }
-    }, []);
 
     const handleAddTweet = () => {
         const newId = Date.now().toString();
@@ -58,8 +49,7 @@ const CompositionArea: React.FC<CompositionAreaProps> = ({onBack, onNext, curren
 
     return (
         <div
-            ref={containerRef}
-            className="w-full max-w-xl bg-[#101214] border border-white/10 rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col"
+            className="w-full max-w-xl h-[85%] bg-[#101214] border border-white/10 rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col"
         >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#101214]/95 backdrop-blur">
@@ -142,8 +132,20 @@ const CompositionArea: React.FC<CompositionAreaProps> = ({onBack, onNext, curren
                                         {tweet.media.length > 0 && (
                                             <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
                                                 {tweet.media.map(m => (
-                                                    <div key={m.id} className="w-24 h-24 rounded-xl bg-black/30 relative shrink-0">
-                                                        <img aria-label="Close" src={m.url} className="w-full h-full object-cover rounded-xl" />
+                                                    <div key={m.id} className="w-24 h-24 rounded-xl bg-black/30 relative shrink-0 group">
+                                                        {m.type === 'video' ? (
+                                                            <>
+                                                                <video
+                                                                    src={m.url}
+                                                                    className="w-full h-full object-cover rounded-xl"
+                                                                />
+                                                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl">
+                                                                    <Play size={32} className="text-white fill-white hover:scale-110" />
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <img aria-label="Close" src={m.url} className="w-full h-full object-cover rounded-xl" />
+                                                        )}
                                                         <button
                                                             aria-label="Close"
                                                             className="absolute top-1 right-1 bg-black/50 p-1 rounded-full text-white"
@@ -266,22 +268,22 @@ const CompositionArea: React.FC<CompositionAreaProps> = ({onBack, onNext, curren
                     </button>
                 </div>
 
-                <div className="h-6" />
+                <div className="h-4" />
+            </div>
 
-                <div className="sticky bottom-0 flex items-center justify-between pl-4 pr-4 pt-3 pb-0 border-t border-white/10 bg-[#101214]/95 backdrop-blur">
-                    <div className="w-8 h-8 rounded-full bg-app-peach flex items-center justify-center">
-                        <Feather className="text-app-bg w-5 h-5" />
-                    </div>
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={!canProceed}
-                        onClick={() => onNext({ tweets })}
-                        className="!rounded-full !px-4 !py-1.5 !text-sm"
-                    >
-                        Post
-                    </Button>
+            <div className="sticky bottom-0 flex items-center justify-between pl-4 pr-4 pt-3 pb-4 border-t border-white/10 bg-[#101214]/95 backdrop-blur">
+                <div className="w-8 h-8 rounded-full bg-app-peach flex items-center justify-center">
+                    <Feather className="text-app-bg w-5 h-5" />
                 </div>
+                <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={!canProceed}
+                    onClick={() => onNext({ tweets })}
+                    className="!rounded-full !px-4 !py-1.5 !text-sm"
+                >
+                    Post
+                </Button>
             </div>
         </div>
     );
