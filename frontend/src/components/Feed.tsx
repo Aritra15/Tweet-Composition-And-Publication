@@ -69,7 +69,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
     <div className="flex flex-col">
       {tweetItems.map((item, i) => {
         return (
-          <div key={item.id} className={"flex flex-col hover:bg-app-card/30 transition-colors cursor-pointer" + (i === tweetItems.length - 1 ? "" : " border-b border-[#575757]")}>
+          <div key={item.id} className={"flex flex-col hover:bg-app-card/30 transition-colors cursor-pointer" + (i === tweetItems.length - 1 ? "" : " border-b border-white/10")}>
             {item.tweets.slice(0, tweetCount).map((tweet: FeedTweet, index: number) => (
               <article key={tweet.id} className={"p-4 relative"}>
                 {item.tweets.length !== 1 && index < tweetCount - 1 && (
@@ -113,7 +113,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                               key={idx}
                               onClick={() => openLightbox(media.url, 'image')}
                               onContextMenu={(event) => event.preventDefault()}
-                              className={`flex-shrink-0 relative p-0 bg-transparent cursor-zoom-in ${single ? 'max-h-[360px] max-w-[90%] w-fit' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
+                              className={`flex-shrink-0 relative p-0 bg-transparent cursor-zoom-in ${single ? 'max-h-[360px] max-w-[90%] w-fit' : 'h-[200px]'} rounded-2xl overflow-hidden`}
                             >
                               <img
                                 src={media.url}
@@ -186,7 +186,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
             {!isThreadOpen && item.tweets.length > 2 && (
               <div
                 onClick={() => handleOpenThread(item)}
-                className="text-app-muted border-t border-[#575757] flex justify-center items-center pt-[8px] pr-[16px] pb-[8px] pl-[16px] hover:font-bold text-sm font-medium"
+                className="text-app-muted border-t border-white/10 flex justify-center items-center pt-[8px] pr-[16px] pb-[8px] pl-[16px] hover:font-bold text-sm font-medium"
               >
                 See more
               </div>

@@ -6,7 +6,7 @@ import { PublishScreen } from './screens/Publish';
 import { ScreenName, type FeedThread, type Thread, type User } from './types';
 import './App.css';
 import { Avatar } from './components/Shared';
-import { ArrowLeft, Feather } from 'lucide-react';
+import { Feather } from 'lucide-react';
 
 const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001';
 const API_BASE_URL = 'http://localhost:8000';
@@ -131,8 +131,6 @@ function App() {
   const [fetchedFeedItems, setFetchedFeedItems] = useState<FeedThread[]>([]);
   const [tweetLoading, setTweetLoading] = useState(true);
 
-  const [threadTweets, setThreadTweets] = useState<FeedThread | null>(null);
-
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
 
@@ -184,49 +182,41 @@ function App() {
   const handlePublishBack = () => {
     navigate(ScreenName.COMPOSE);
   };
-  
-  const goToHomeFeed = () => {
-    navigate(ScreenName.HOME);
-    setThreadTweets(null);
-  };
 
   // Determine if we are in a modal flow
 
   return (
     <>
-      <div className='relative overflow-y-auto'>
-        {/* Header */}
-        <header ref={headerRef} className="fixed  top-0 z-30 w-screen bg-[#0a0a0a]/80 backdrop-blur-md px-4 py-4 flex items-center justify-between">
-          <div className="w-12 h-12 rounded-full bg-app-peach flex items-center justify-center">
-            {threadTweets === null ? <Feather className="text-app-bg w-7 h-7" /> : <ArrowLeft className="text-app-bg w-7 h-7" onClick={goToHomeFeed} />}
-          </div>
+      {/* Header */}
+      <header ref={headerRef} className="fixed  top-0 z-30 w-screen bg-[#0a0a0a]/80 backdrop-blur-md px-4 py-4 flex items-center justify-between">
+        <div className="w-12 h-12 rounded-full bg-app-peach flex items-center justify-center">
+          <Feather className="text-app-bg w-7 h-7" />
+        </div>
 
-          <div className="flex gap-6">
-            <button
-              className="font-semibold text-[18px] relative py-2 text-app-text"
-            >
-              For You
-              <div className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-app-peach" />
-            </button>
-            <button
-              className="font-semibold text-[18px] relative py-2 text-app-muted"
-            >
-              Following
-            </button>
-          </div>
+        <div className="flex gap-6">
+          <button
+            className="font-semibold text-[18px] py-2 relative text-app-text"
+          >
+            For You
+            <div className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-app-peach" />
+          </button>
+          <button
+            className="font-semibold text-[18px] py-2 relative text-app-muted"
+          >
+            Following
+          </button>
+        </div>
 
-          <Avatar src="https://picsum.photos/150/150" alt="Me" size="lg" />
-        </header>
-      </div>
+        <Avatar src="https://picsum.photos/150/150" alt="Me" size="lg" />
+      </header>
 
-      {!tweetLoading && <div style={{ paddingTop: headerHeight }} className={`max-w-xl mx-auto min-h-screen bg-app-bg text-app-text overflow-hidden relative shadow-2xl`}>
+      {!tweetLoading && <div style={{ paddingTop: headerHeight }} className={`max-w-[45%] mx-auto min-h-screen bg-app-bg text-app-text overflow-hidden relative shadow-2xl`}>
         {/* Main screen - render Home when not in modal, or keep Home in background when modal is open */}
         <HomeScreen
           onNavigate={navigate}
           userId={MOCK_USER.id}
-          threadTweets={threadTweets}
           headerRef={headerRef}
-          setThreadTweets={setThreadTweets}
+          headerHeight={headerHeight}
           publishedFeedItems={publishedFeedItems}
           fetchedFeedItems={fetchedFeedItems}
         />

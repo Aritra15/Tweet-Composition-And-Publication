@@ -282,7 +282,7 @@ export const BottomSheet = ({
 };
 
 export const TweetActions = ({ likes, replies, reposts }: { likes: number, replies: number, reposts: number }) => (
-  <div className="flex items-center justify-between text-app-muted max-w-md mt-3">
+  <div className="flex items-center justify-between text-app-muted max-w-[90%] mt-3">
     <button className="flex items-center gap-1.5 group hover:text-app-peach transition-colors">
       <MessageCircle size={18} className="group-hover:stroke-app-peach" />
       <span className="text-xs">{replies}</span>

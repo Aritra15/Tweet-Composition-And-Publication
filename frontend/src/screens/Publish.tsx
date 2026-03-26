@@ -159,7 +159,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
 
               <div className="w-full space-y-3">
                 {tweets.map((tweet: TweetDraft) => (
-                  <article key={tweet.id} className={"p-4 relative"}>
+                  <article key={tweet.id} className={"p-4 relative border-y border-white/10"}>
                     <div className="flex gap-3">
                       <div className="shrink-0 z-10">
                         <Avatar src={currentUser.avatar} alt={currentUser.name} />
@@ -187,7 +187,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                               return (
                                 <div
                                   key={idx}
-                                  className={`flex-shrink-0 relative ${single ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border`}
+                                  className={`flex-shrink-0 relative ${single ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden`}
                                 >
                                   <img
                                     src={media.url}

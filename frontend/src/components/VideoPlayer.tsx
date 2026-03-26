@@ -163,7 +163,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, single, headerRef, onOpe
     return (
         <div
             ref={containerRef}
-            className={`flex-shrink-0 relative cursor-zoom-in ${single ? 'h-[360px] w-fit max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden border border-app-border bg-black`}
+            className={`flex-shrink-0 relative cursor-zoom-in ${single ? 'h-[360px] w-fit max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden bg-black`}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             onClick={handleContainerClick}
