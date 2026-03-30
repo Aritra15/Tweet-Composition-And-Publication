@@ -45,7 +45,7 @@ const CompositionArea: React.FC<CompositionAreaProps> = ({onBack, onNext, curren
         setTweets(tweets.map((t, i) => i === activeTweetIndex ? { ...t, text } : t));
     };
 
-    const canProceed = tweets.every(t => (t.text.length > 0 && t.text.length <= MAX_CHARS) || t.media.length > 0 || !!t.poll);
+    const canProceed = tweets.every(t => (t.text.length > 0 && t.text.length <= MAX_CHARS) || t.media.length > 0 || t.poll);
 
     return (
         <div

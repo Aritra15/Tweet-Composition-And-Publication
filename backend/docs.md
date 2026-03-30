@@ -11,7 +11,7 @@
 | **System** | | |
 | GET | `/health` | Basic API health check |
 | **Tweets** | | |
-| POST | `/tweets` | Create tweet with optional media and poll |
+| POST | `/tweets` | Create base tweet record (text + user only) |
 | GET | `/tweets` | Get latest tweets across all users |
 | GET | `/tweets/{tweet_id}` | Get tweet by ID |
 | GET | `/tweets/user/{user_id}` | Get user's tweets |
@@ -23,6 +23,9 @@
 | GET | `/media/tweet/{tweet_id}` | Get all media for tweet |
 | GET | `/media/tweet/{tweet_id}/metadata` | Get media metadata only (no URL data) |
 | DELETE | `/media/{media_id}` | Delete media item |
+| **Polls** | | |
+| POST | `/polls` | Create poll for existing tweet |
+| POST | `/polls/{poll_id}/options` | Add one option to existing poll |
 | **AI** | | |
 | GET | `/ai/health-gemma` | OpenRouter health check |
 | POST | `/ai/enhance-text` | Enhance tweet text |
@@ -35,7 +38,7 @@
 
 ### Media Storage
 
-All media (images and videos) submitted as base64 data URLs are **automatically uploaded to Supabase Storage** during tweet creation. The database stores only the resulting short `https://` public URL — never the raw base64. This keeps the database lean and API responses fast.
+All media (images and videos) submitted as base64 data URLs are **automatically uploaded to Supabase Storage** when using media attach endpoints (`POST /media`, `POST /media/bulk/{tweet_id}`). The database stores only the resulting short `https://` public URL — never the raw base64. This keeps the database lean and API responses fast.
 
 Supported MIME types and their stored extensions:
 
@@ -216,7 +219,7 @@ curl -X POST "http://localhost:8000/api/v1/ai/suggest-hashtags" \
 
 **Notes:**
 - Timeout: 120 seconds
-- When `image_url` is passed as tweet media in `POST /tweets`, it is automatically uploaded to Supabase Storage and replaced with a hosted `https://` URL
+- `image_url` should be attached using `/media` or `/media/bulk/{tweet_id}` after creating a base tweet
 
 **Example:**
 ```bash
@@ -239,42 +242,19 @@ Base URL: `http://localhost:8000/api/v1/tweets`
 
 **URL:** `http://localhost:8000/api/v1/tweets`
 
-**Description:** Creates a new tweet with optional media and/or poll. Base64 media URLs are automatically uploaded to Supabase Storage — the stored and returned URL will be a short `https://` link, not the original base64.
+**Description:** Creates a base tweet record only. Media and poll are attached in separate API calls.
 
 **Request Body:**
 ```json
 {
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "text": "Your tweet text here",
-  "media": [
-    {
-      "url": "data:image/png;base64,iVBORw0KGgoAAAA...",
-      "type": "image",
-      "source": "upload",
-      "alt_text": "Optional description"
-    }
-  ],
-  "poll": {
-    "question": "Which feature should we ship first?",
-    "options": [
-      { "text": "AI images" },
-      { "text": "Poll scheduling" }
-    ]
-  }
+  "text": "Your tweet text here"
 }
 ```
 
 **Parameters:**
 - `user_id` (string, required): UUID — must exist in `users` table
 - `text` (string, required): 1–280 characters
-- `media` (array, optional): List of media items
-  - `url` (string, required): Base64 data URL or external `https://` URL
-  - `type` (string, required): `"image"` or `"video"`
-  - `source` (string, required): `"ai"` or `"upload"`
-  - `alt_text` (string, optional): Accessibility description
-- `poll` (object, optional):
-  - `question` (string, required): 1–280 characters
-  - `options` (array, required): 2–4 items, each with `text` (1–100 chars)
 
 **Response (201):**
 ```json
@@ -283,27 +263,8 @@ Base URL: `http://localhost:8000/api/v1/tweets`
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
   "text": "Your tweet text here",
   "created_at": "2026-03-23T10:30:00.000Z",
-  "media": [
-    {
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "tweet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-      "url": "https://ikkrcytofoontvmxyhwh.supabase.co/storage/v1/object/public/media/tweets/uuid.png",
-      "type": "image",
-      "source": "upload",
-      "alt_text": "Optional description",
-      "created_at": "2026-03-23T10:30:00.000Z"
-    }
-  ],
-  "poll": {
-    "id": "poll-uuid",
-    "tweet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-    "question": "Which feature should we ship first?",
-    "created_at": "2026-03-23T10:30:00.000Z",
-    "options": [
-      { "id": "opt-1", "poll_id": "poll-uuid", "text": "AI images", "position": 1, "votes_count": 0, "created_at": "..." },
-      { "id": "opt-2", "poll_id": "poll-uuid", "text": "Poll scheduling", "position": 2, "votes_count": 0, "created_at": "..." }
-    ]
-  }
+  "media": [],
+  "poll": null
 }
 ```
 
@@ -313,14 +274,52 @@ curl -X POST "http://localhost:8000/api/v1/tweets" \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "550e8400-e29b-41d4-a716-446655440000",
-    "text": "Check out this AI image!",
-    "media": [{
-      "url": "data:image/png;base64,iVBORw0KGgo...",
-      "type": "image",
-      "source": "ai"
-    }]
+    "text": "Check out this AI image!"
   }'
 ```
+
+---
+
+## Poll Endpoints
+
+Base URL: `http://localhost:8000/api/v1/polls`
+
+### 1. Create Poll
+
+**Endpoint:** `POST /`
+
+**URL:** `http://localhost:8000/api/v1/polls`
+
+**Description:** Creates a poll for an existing tweet.
+
+**Request Body:**
+```json
+{
+  "tweet_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "question": "Which feature should we ship first?"
+}
+```
+
+**Response (201):** Poll object with empty options list.
+
+### 2. Add Poll Option
+
+**Endpoint:** `POST /{poll_id}/options`
+
+**URL:** `http://localhost:8000/api/v1/polls/{poll_id}/options`
+
+**Description:** Adds one option to an existing poll. Option `position` is auto-assigned.
+
+**Request Body:**
+```json
+{
+  "text": "AI images"
+}
+```
+
+**Notes:**
+- Maximum 4 options per poll
+- Poll must exist
 
 ---
 
@@ -566,7 +565,7 @@ USING (bucket_id = 'media');
 
 ## Complete Workflow Example
 
-### Post a tweet with an AI-generated image
+### Post a tweet with an AI-generated image (staged)
 
 **Step 1: Generate image**
 ```bash
@@ -576,22 +575,28 @@ curl -X POST "http://localhost:8000/api/v1/ai/generate-image" \
 ```
 Save the `image_url` from the response.
 
-**Step 2: Create tweet with the image**
+**Step 2: Create base tweet**
 ```bash
 curl -X POST "http://localhost:8000/api/v1/tweets" \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "YOUR_USER_UUID",
-    "text": "Beautiful AI sunset 🌅",
-    "media": [{
-      "url": "PASTE_IMAGE_URL_FROM_STEP_1",
-      "type": "image",
-      "source": "ai",
-      "alt_text": "AI generated sunset"
-    }]
+    "text": "Beautiful AI sunset 🌅"
   }'
 ```
-The base64 data URL is automatically uploaded to Supabase Storage. The response will contain a hosted `https://` URL.
+
+**Step 3: Attach media to that tweet**
+```bash
+curl -X POST "http://localhost:8000/api/v1/media/bulk/TWEET_ID" \
+  -H "Content-Type: application/json" \
+  -d '[{
+    "url": "PASTE_IMAGE_URL_FROM_STEP_1",
+    "type": "image",
+    "source": "ai",
+    "alt_text": "AI generated sunset"
+  }]'
+```
+If the URL is base64, backend uploads it to Supabase Storage and stores a hosted `https://` URL in DB.
 
 ---
 
@@ -607,10 +612,26 @@ The base64 data URL is automatically uploaded to Supabase Storage. The response 
 1. **Health check** — `GET /api/v1/health` → expect `"status": "ok"`
 2. **AI health** — `GET /api/v1/ai/health-gemma` → expect `"status": "ok"`
 3. **Generate image** — `POST /api/v1/ai/generate-image` → save `image_url`
-4. **Create tweet** — `POST /api/v1/tweets` with media → save `id`
-5. **Get tweet** — `GET /api/v1/tweets/{id}` → verify media URL is now `https://`
-6. **Get latest** — `GET /api/v1/tweets` → verify tweet appears in feed
-7. **Delete tweet** — `DELETE /api/v1/tweets/{id}` → verify cascade deletes media and poll
+4. **Create base tweet** — `POST /api/v1/tweets` → save `id`
+5. **Attach media** — `POST /api/v1/media` or `POST /api/v1/media/bulk/{tweet_id}`
+6. **Create poll (optional)** — `POST /api/v1/polls`
+7. **Add poll options (optional)** — `POST /api/v1/polls/{poll_id}/options`
+8. **Get tweet** — `GET /api/v1/tweets/{id}` → verify media/poll data
+9. **Delete tweet** — `DELETE /api/v1/tweets/{id}` → verify cascade deletes media and poll
+
+### Atomicity Note for Staged Publish
+
+Publishing is now multi-step. To keep state consistent:
+
+1. Create base tweet
+2. Attach media and/or poll data
+3. If any later step fails, call `DELETE /tweets/{tweet_id}` to roll back the partial publish
+
+This works because tweet deletion cascades to `media`, `polls`, and `poll_options`.
+
+### Current Scope Note
+
+Thread APIs are currently not active (`/tweets/thread` is commented out), so thread persistence is not part of this backend API scope yet.
 
 ---
 
@@ -621,6 +642,8 @@ The base64 data URL is automatically uploaded to Supabase Storage. The response 
 | `404 Not Found` | Wrong URL | All endpoints require `/api/v1/` prefix |
 | `Foreign key constraint` | Invalid `user_id` | Create user in Supabase `users` table first |
 | `Tweet not found` | Wrong ID or deleted | Verify with `GET /tweets/{id}` |
+| `Poll already exists for this tweet` | Attempted second poll for same tweet | Use existing poll ID or delete poll with tweet |
+| `A poll must have at least 2 options and can have at most 4 options` | Too many options added | Keep poll option count between 1 and 4 |
 | `Failed to create tweet` | Text out of range or DB issue | Text must be 1–280 chars; check Supabase connection |
 | `Storage upload failed` | Missing bucket or policy | Create `media` bucket and set storage policies |
 | `500` on any endpoint | Misconfiguration | Check backend logs and `.env` values |
@@ -636,10 +659,7 @@ tweets        (id, user_id, text, created_at)
 media         (id, tweet_id, url, type, source, alt_text, created_at)
 polls         (id, tweet_id, question, created_at)
 poll_options  (id, poll_id, text, position, votes_count, created_at)
-threads       (id, user_id, status, created_at, updated_at)
-thread_tweets (thread_id, tweet_id, position, created_at)
 
 -- Cascade deletes:
--- Deleting a tweet → deletes its media, polls, poll_options, thread_tweets
--- Deleting a thread → deletes its thread_tweets entries
+-- Deleting a tweet → deletes its media, polls, poll_options
 ```

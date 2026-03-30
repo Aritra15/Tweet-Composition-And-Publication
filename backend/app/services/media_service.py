@@ -2,6 +2,7 @@ from app.schemas.media import MediaCreate, MediaResponse
 from app.schemas.tweet import MediaItem
 from app.db.supabase import get_supabase_client
 from fastapi import HTTPException
+from app.services.storage_service import storage_service
 
 
 class MediaService:
@@ -17,10 +18,14 @@ class MediaService:
             if not tweet_check.data:
                 raise HTTPException(status_code=404, detail=f"Tweet with id {media_data.tweet_id} not found")
 
+            url = media_data.url
+            if url.startswith("data:"):
+                url = storage_service.upload_base64(url, folder="tweets")
+
             # Insert media
             media_result = self.supabase.table("media").insert({
                 "tweet_id": media_data.tweet_id,
-                "url": media_data.url,
+                "url": url,
                 "type": media_data.type,
                 "source": media_data.source,
                 "alt_text": media_data.alt_text
@@ -47,9 +52,13 @@ class MediaService:
 
             media_responses = []
             for media_item in media_items:
+                url = media_item.url
+                if url.startswith("data:"):
+                    url = storage_service.upload_base64(url, folder="tweets")
+
                 media_result = self.supabase.table("media").insert({
                     "tweet_id": tweet_id,
-                    "url": media_item.url,
+                    "url": url,
                     "type": media_item.type,
                     "source": media_item.source,
                     "alt_text": media_item.alt_text

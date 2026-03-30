@@ -192,7 +192,8 @@ export const BottomSheet = ({
       const panelWidth = 360;
       const viewportPadding = 12;
       const availableHeight = Math.max(window.innerHeight - viewportPadding * 2, 280);
-      const maxHeight = Math.min(availableHeight, 520);
+      const maxHeight = Math.min(availableHeight, 560);
+      console.log(maxHeight);
 
       let left = rect.left + (rect.width / 2) - (panelWidth / 2) + horizontalOffset;
       left = Math.max(viewportPadding, left);
@@ -249,7 +250,7 @@ export const BottomSheet = ({
               top: position?.top ?? 80,
               left: position?.left ?? 12,
               width: 'min(360px, calc(100vw - 24px))',
-              maxHeight: position?.maxHeight ?? 520,
+              maxHeight: position?.maxHeight ?? 560,
             } : undefined}
             className={`fixed z-[70] overflow-y-auto border border-app-border/60 shadow-2xl ${floating
               ? 'bg-app-elevated rounded-2xl'

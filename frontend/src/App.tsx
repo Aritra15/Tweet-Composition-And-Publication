@@ -13,12 +13,12 @@ const API_BASE_URL = 'http://localhost:8000';
 
 const MOCK_USER: User = {
   id: DEFAULT_USER_ID,
-  name: 'Demo User',
-  handle: '@demo_user',
+  name: 'User 00000000',
+  handle: '@00000000',
   avatar: 'https://picsum.photos/150/150',
 };
 
-const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {  
+const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
   return {
     id: `published-thread-${Date.now()}`,
     isThread: true,
@@ -38,13 +38,13 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
       media: tweet.media.map((m) => ({url: m.url, type: m.type})),
       poll: tweet.poll
         ? {
-            question: tweet.poll.question,
-            options: tweet.poll.options.map((option) => ({
-              id: option.id,
-              text: option.text,
-              votesCount: 0,
-            })),
-          }
+          question: tweet.poll.question,
+          options: tweet.poll.options.map((option) => ({
+            id: option.id,
+            text: option.text,
+            votesCount: 0,
+          })),
+        }
         : undefined,
     })),
   };
@@ -111,13 +111,13 @@ const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
         media: (tweet.media ?? []).map((item) => ({url: item.url, type: item.type})),
         poll: tweet.poll
           ? {
-              question: tweet.poll.question,
-              options: tweet.poll.options.map((option) => ({
-                id: option.id,
-                text: option.text,
-                votesCount: option.votes_count,
-              })),
-            }
+            question: tweet.poll.question,
+            options: tweet.poll.options.map((option) => ({
+              id: option.id,
+              text: option.text,
+              votesCount: option.votes_count,
+            })),
+          }
           : undefined,
       },
     ],
@@ -183,6 +183,32 @@ function App() {
     navigate(ScreenName.COMPOSE);
   };
 
+  const handleDeleteFeedItem = async (item: FeedThread) => {
+    if (item.isThread) {
+      setPublishedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
+      setFetchedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
+      return;
+    }
+
+    const tweetId = item.tweets[0]?.id;
+    if (!tweetId) {
+      return;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/tweets/${tweetId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      const detail = typeof error?.detail === 'string' ? error.detail : 'Failed to delete tweet';
+      throw new Error(detail);
+    }
+
+    setPublishedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
+    setFetchedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
+  };
+
   // Determine if we are in a modal flow
 
   return (
@@ -219,6 +245,7 @@ function App() {
           headerHeight={headerHeight}
           publishedFeedItems={publishedFeedItems}
           fetchedFeedItems={fetchedFeedItems}
+          onDeleteFeedItem={handleDeleteFeedItem}
         />
 
         <AnimatePresence>

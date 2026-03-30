@@ -11,6 +11,7 @@ interface HomeProps {
   headerHeight: number;
   publishedFeedItems: FeedThread[];
   fetchedFeedItems: FeedThread[];
+  onDeleteFeedItem: (item: FeedThread) => Promise<void>;
 }
 
 const MOCK_TWEETS: FeedThread[] = [
@@ -92,7 +93,7 @@ const MOCK_TWEETS: FeedThread[] = [
   },
 ];
 
-export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef, headerHeight, publishedFeedItems, fetchedFeedItems }) => {
+export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef, headerHeight, publishedFeedItems, fetchedFeedItems, onDeleteFeedItem }) => {
   const [threadTweets, setThreadTweets] = useState<FeedThread | null>(null);
   const isShowingThread = threadTweets !== null;
 
@@ -156,6 +157,14 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef,
     setThreadTweets(null);
   };
 
+  const handleDeleteItem = async (item: FeedThread) => {
+    await onDeleteFeedItem(item);
+
+    if (threadTweets?.id === item.id) {
+      setThreadTweets(null);
+    }
+  };
+
   return (
     <>
       {isShowingThread &&
@@ -202,7 +211,14 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef,
           </article>}
 
         {/* Feed */}
-        <Feed tweetItems={visibleTweets} userId={userId} isThreadOpen={isShowingThread} headerRef={headerRef} handleOpenThread={handleOpenThread} />
+        <Feed
+          tweetItems={visibleTweets}
+          userId={userId}
+          isThreadOpen={isShowingThread}
+          headerRef={headerRef}
+          handleOpenThread={handleOpenThread}
+          onDeleteItem={handleDeleteItem}
+        />
 
         {/* FAB */}
         {showFAB && <button

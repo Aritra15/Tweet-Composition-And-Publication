@@ -29,6 +29,21 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
     }, 2500);
   };
 
+  const parseApiError = async (response: Response, fallbackMessage: string) => {
+    const error = await response.json().catch(() => ({}));
+    return typeof error?.detail === 'string' ? error.detail : fallbackMessage;
+  };
+
+  const rollbackTweet = async (tweetId: string) => {
+    const rollbackResponse = await fetch(`${API_BASE_URL}/api/v1/tweets/${tweetId}`, {
+      method: 'DELETE',
+    });
+
+    if (!rollbackResponse.ok) {
+      throw new Error(await parseApiError(rollbackResponse, 'Rollback failed'));
+    }
+  };
+
   const publishTweet = async (text: string, media: Array<TweetMedia>, poll?: Poll) => {
     const normalizedMedia = media.map((item) => ({
       url: item.url,
@@ -45,21 +60,76 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
       }
       : undefined;
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/tweets`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: currentUser.id,
-        text,
-        media: normalizedMedia,
-        poll: normalizedPoll,
-      }),
-    });
+    let createdTweetId: string | null = null;
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      const detail = typeof error?.detail === 'string' ? error.detail : 'Failed to publish tweet';
-      throw new Error(detail);
+    try {
+      const tweetResponse = await fetch(`${API_BASE_URL}/api/v1/tweets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          text,
+        }),
+      });
+
+      if (!tweetResponse.ok) {
+        throw new Error(await parseApiError(tweetResponse, 'Failed to publish tweet'));
+      }
+
+      const createdTweet: { id: string } = await tweetResponse.json();
+      createdTweetId = createdTweet.id;
+
+      if (normalizedMedia.length > 0) {
+        const mediaResponse = await fetch(`${API_BASE_URL}/api/v1/media/bulk/${createdTweet.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(normalizedMedia),
+        });
+
+        if (!mediaResponse.ok) {
+          throw new Error(await parseApiError(mediaResponse, 'Failed to attach media'));
+        }
+      }
+
+      if (normalizedPoll && normalizedPoll.options.length > 0) {
+        const pollResponse = await fetch(`${API_BASE_URL}/api/v1/polls`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tweet_id: createdTweet.id,
+            question: normalizedPoll.question,
+          }),
+        });
+
+        if (!pollResponse.ok) {
+          throw new Error(await parseApiError(pollResponse, 'Failed to create poll'));
+        }
+
+        const createdPoll: { id: string } = await pollResponse.json();
+
+        for (const option of normalizedPoll.options) {
+          const optionResponse = await fetch(`${API_BASE_URL}/api/v1/polls/${createdPoll.id}/options`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(option),
+          });
+
+          if (!optionResponse.ok) {
+            throw new Error(await parseApiError(optionResponse, 'Failed to create poll option'));
+          }
+        }
+      }
+    } catch (error) {
+      if (createdTweetId) {
+        try {
+          await rollbackTweet(createdTweetId);
+        } catch {
+          const message = error instanceof Error ? error.message : 'Publishing failed';
+          throw new Error(`${message}. Rollback failed; please delete the partial tweet manually.`);
+        }
+      }
+
+      throw error;
     }
   };
 
@@ -102,11 +172,11 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
       return;
     }
 
-    const hasEmptyTweetText = tweets.some((tweet) => tweet.text.trim().length === 0);
-    if (hasEmptyTweetText) {
-      showToast('All tweets must have text before publishing', 'error');
-      return;
-    }
+    // const hasEmptyTweetText = tweets.some((tweet) => tweet.text.trim().length === 0);
+    // if (hasEmptyTweetText) {
+    //   showToast('All tweets must have text before publishing', 'error');
+    //   return;
+    // }
 
     setIsPublishing(true);
 
@@ -176,7 +246,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
 
                         {tweet.media.length > 0 && (
                           <div className="mb-3 overflow-x-auto flex gap-2 py-1">
-                            {tweet.media.map((media : TweetMedia, idx : number) => {
+                            {tweet.media.map((media: TweetMedia, idx: number) => {
                               const isVideo = media.url.startsWith('data:video/');
                               const single = tweet.media.length === 1;
 
@@ -198,7 +268,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                               );
                             })}
                           </div>
-                      )}
+                        )}
 
                         {tweet.poll && (
                           <div className="w-[85%] mb-3 rounded-xl border border-app-border bg-app-card/20 p-3">
@@ -211,15 +281,15 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                                     type="button"
                                     disabled={true}
                                     className={`w-full text-left text-xs text-app-text`}
-                                  > 
+                                  >
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="truncate pr-2">
-                                            {option.text}
-                                        </span>
-                                        <span className="text-app-muted whitespace-nowrap">0</span>
+                                      <span className="truncate pr-2">
+                                        {option.text}
+                                      </span>
+                                      <span className="text-app-muted whitespace-nowrap">0</span>
                                     </div>
                                     <div className="h-2 rounded-full bg-app-border overflow-hidden">
-                                        <div className="h-full rounded-full bg-app-muted/70 w-0" />
+                                      <div className="h-full rounded-full bg-app-muted/70 w-0" />
                                     </div>
                                   </button>
                                 );
