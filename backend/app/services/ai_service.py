@@ -43,7 +43,7 @@ Return ONLY the enhanced text without any explanations, comments, or additional 
         headers = {
             "Authorization": f"Bearer {settings.openrouter_api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8000",
+            "HTTP-Referer": settings.app_url,
             "X-OpenRouter-Title": "Tweet Composition API"
         }
 
@@ -87,7 +87,7 @@ Return ONLY the enhanced text without any explanations, comments, or additional 
         headers = {
             "Authorization": f"Bearer {settings.openrouter_api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8000",
+            "HTTP-Referer": settings.app_url,
             "X-OpenRouter-Title": "Tweet Composition API"
         }
 

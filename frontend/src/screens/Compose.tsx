@@ -13,7 +13,7 @@ interface ComposeProps {
     initialThread?: Thread | null;
 }
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const MAX_MEDIA_PER_TWEET = 4;
 const MAX_VIDEO_PER_TWEET = 1;
 
