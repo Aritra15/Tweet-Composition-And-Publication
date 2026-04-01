@@ -9,7 +9,6 @@ from app.schemas.tweet import (
 )
 from app.db.supabase import get_supabase_client
 from fastapi import HTTPException
-from app.services.storage_service import storage_service
 
 
 class TweetService:
@@ -46,9 +45,8 @@ class TweetService:
     #     return created
 
     async def create_tweet(self, tweet_data: TweetCreate) -> TweetResponse:
-        """Create a new tweet with optional media attachments and poll."""
+        """Create a new tweet record without media or poll attachments."""
         try:
-            # Insert tweet
             tweet_result = self.supabase.table("tweets").insert({
                 "user_id": tweet_data.user_id,
                 "text": tweet_data.text
@@ -58,68 +56,12 @@ class TweetService:
                 raise HTTPException(status_code=500, detail="Failed to create tweet")
 
             tweet = tweet_result.data[0]
-            tweet_id = tweet["id"]
-
-            # Insert media if provided
-            media_responses = []
-            if tweet_data.media:
-                for media_item in tweet_data.media:
-                    url = media_item.url
-
-                    # Upload base64 to storage, get back a real URL
-                    if url.startswith("data:"):
-                        url = storage_service.upload_base64(url, folder="tweets")
-
-                    media_result = self.supabase.table("media").insert({
-                        "tweet_id": tweet_id,
-                        "url": url,  # now a short https:// URL
-                        "type": media_item.type,
-                        "source": media_item.source,
-                        "alt_text": media_item.alt_text
-                    }).execute()
-
-                    if media_result.data:
-                        media_responses.append(MediaResponse(**media_result.data[0]))
-
-            poll_response: PollResponse | None = None
-            if tweet_data.poll:
-                poll_result = self.supabase.table("polls").insert({
-                    "tweet_id": tweet_id,
-                    "question": tweet_data.poll.question,
-                }).execute()
-
-                if not poll_result.data:
-                    raise HTTPException(status_code=500, detail="Failed to create poll")
-
-                poll = poll_result.data[0]
-
-                poll_options_payload = [
-                    {
-                        "poll_id": poll["id"],
-                        "text": option.text,
-                        "position": index + 1,
-                    }
-                    for index, option in enumerate(tweet_data.poll.options)
-                ]
-
-                poll_options_result = self.supabase.table("poll_options").insert(poll_options_payload).execute()
-                poll_options = [PollOptionResponse(**option) for option in poll_options_result.data] if poll_options_result.data else []
-
-                poll_response = PollResponse(
-                    id=poll["id"],
-                    tweet_id=poll["tweet_id"],
-                    question=poll["question"],
-                    created_at=poll["created_at"],
-                    options=sorted(poll_options, key=lambda option: option.position),
-                )
 
             return TweetResponse(
                 id=tweet["id"],
                 user_id=tweet["user_id"],
                 text=tweet["text"],
                 created_at=tweet["created_at"],
-                media=media_responses,
-                poll=poll_response,
             )
 
         except Exception as e:

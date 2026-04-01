@@ -18,11 +18,18 @@ class PollCreate(BaseModel):
     options: list[PollOptionCreate] = Field(..., min_length=2, max_length=4)
 
 
+class PollAttachCreate(BaseModel):
+    tweet_id: str
+    question: str = Field(..., min_length=1, max_length=280)
+
+
 class TweetCreate(BaseModel):
     user_id: str
     text: str = Field(..., min_length=1, max_length=280)
-    media: list[MediaItem] = []
-    poll: PollCreate | None = None
+
+
+class PollOptionAttachCreate(BaseModel):
+    text: str = Field(..., min_length=1, max_length=100)
 
 
 # class ThreadTweetCreate(BaseModel):

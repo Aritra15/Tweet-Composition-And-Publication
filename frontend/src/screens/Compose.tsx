@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { type Thread, type TweetDraft, type TweetMedia, type User, AudienceType } from '../types';
 import { Button, BottomSheet, Toggle, Input, Toast } from '../components/Shared';
 import { EmojiPicker } from '../components/EmojiPicker';
-import CompositionArea from '../components/CompositionArea';
+import CompositionArea from '../components/CompositionPreview';
 
 interface ComposeProps {
     onBack: () => void;
@@ -36,6 +36,7 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
     // Poll State
     const [pollQuestion, setPollQuestion] = useState('');
     const [pollOptions, setPollOptions] = useState(['', '']);
+    const [pollError, setPollError] = useState<string | null>(null);
 
     // AI State
     const [imagePrompt, setImagePrompt] = useState('');
@@ -183,15 +184,60 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
     };
 
     const handleSavePoll = () => {
-        const validOptions = pollOptions.filter(o => o.trim() !== '').map((text, i) => ({ id: i.toString(), text }));
-        if (pollQuestion && validOptions.length >= 2) {
-            setTweets(tweets.map((t, i) =>
-                i === activeTweetIndex ? { ...t, poll: { question: pollQuestion, options: validOptions } } : t
-            ));
-            setPollQuestion('');
-            setPollOptions(['', '']);
-            setActiveSheet(null);
+        const trimmedQuestion = pollQuestion.trim();
+        const hasEmptyOption = pollOptions.some((option) => option.trim() === '');
+
+        if (!trimmedQuestion) {
+            setPollError('Poll question is required.');
+            return;
         }
+
+        if (hasEmptyOption) {
+            setPollError('All poll options are required.');
+            return;
+        }
+
+        const normalizedOptions = pollOptions.map((text, i) => ({ id: i.toString(), text: text.trim() }));
+
+        setTweets(tweets.map((t, i) =>
+            i === activeTweetIndex ? { ...t, poll: { question: trimmedQuestion, options: normalizedOptions } } : t
+        ));
+        setPollQuestion('');
+        setPollOptions(['', '']);
+        setPollError(null);
+        setActiveSheet(null);
+    };
+
+    const resetPollSheetState = () => {
+        setPollQuestion('');
+        setPollOptions(['', '']);
+        setPollError(null);
+    };
+
+    const handleAddPollOption = () => {
+        if (pollOptions.length >= 4) {
+            return;
+        }
+
+        setPollOptions((prev) => [...prev, '']);
+        if (pollError) {
+            setPollError('All poll options are required.');
+        }
+    };
+
+    const handleRemovePollOption = (indexToRemove: number) => {
+        if (pollOptions.length <= 2) {
+            return;
+        }
+
+        setPollOptions((prev) => {
+            const next = prev.filter((_, index) => index !== indexToRemove);
+            if (pollError) {
+                const stillHasEmpty = next.some((option) => option.trim() === '');
+                setPollError(stillHasEmpty ? 'All poll options are required.' : null);
+            }
+            return next;
+        });
     };
 
     // AI Actions
@@ -285,31 +331,50 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
         }
     }
 
-    const onAiToolsClose = (op : string) => {
-        if (op === 'save') {
-            console.log('Saving AI enhancements:');
-            setTweets(prev => prev.map((t, i) => {
-                if (i !== activeTweetIndex) return t;
-
-                const updatedText = enhancedText ? appendSelectedHashtags(enhancedText) : t.text;
-                const updatedMedia = generatedImages.length > 0 ? [...t.media, ...generatedImages.map((url, idx): TweetMedia => ({
-                    id: `ai-generated-${Date.now()}-${idx}`,
-                    type: 'image',
-                    url,
-                    source: 'ai',
-                }))] : t.media;
-
-                return { ...t, text: updatedText, media: updatedMedia };
-            }));
-        }
-
+    const resetAiToolsState = () => {
         setEnhancedText('');
         setImagePrompt('');
         setGeneratedImages([]);
         setSuggestedHashtags([]);
         setSelectedHashtags([]);
+    };
+
+    const handleApplyAiEnhancements = () => {
+        setTweets(prev => prev.map((t, i) => {
+            if (i !== activeTweetIndex) return t;
+
+            const updatedText = enhancedText ? appendSelectedHashtags(enhancedText) : t.text;
+            const updatedMedia = generatedImages.length > 0
+                ? [...t.media, ...generatedImages.map((url, idx): TweetMedia => ({
+                    id: `ai-generated-${Date.now()}-${idx}`,
+                    type: 'image',
+                    url,
+                    source: 'ai',
+                }))]
+                : t.media;
+
+            return { ...t, text: updatedText, media: updatedMedia };
+        }));
+
+        resetAiToolsState();
         setActiveSheet(null);
-    }
+    };
+
+    const handleDismissSheet = () => {
+        if (activeSheet === 'poll') {
+            resetPollSheetState();
+        }
+
+        if (activeSheet === 'ai') {
+            resetAiToolsState();
+        }
+
+        if (activeSheet === 'media') {
+            setIsMediaDragActive(false);
+        }
+
+        setActiveSheet(null);
+    };
 
     const getSheetAnchor = () => {
         if (activeSheet === 'media') return mediaActionRef;
@@ -350,7 +415,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
             {/* Media Sheet */}
             <BottomSheet
                 isOpen={activeSheet === 'media'}
-                onClose={() => setActiveSheet(null)}
+                onClose={handleDismissSheet}
+                onCancel={handleDismissSheet}
                 title="Add Media"
                 floating
                 anchorRef={getSheetAnchor()}
@@ -396,7 +462,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
             {/* Emoji Sheet */}
             <BottomSheet
                 isOpen={activeSheet === 'emoji'}
-                onClose={() => setActiveSheet(null)}
+                onClose={handleDismissSheet}
+                onCancel={handleDismissSheet}
                 title="Emojis"
                 floating
                 anchorRef={getSheetAnchor()}
@@ -410,7 +477,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
             {/* Poll Sheet */}
             <BottomSheet
                 isOpen={activeSheet === 'poll'}
-                onClose={() => setActiveSheet(null)}
+                onClose={handleDismissSheet}
+                onCancel={handleDismissSheet}
                 title="Create Poll"
                 floating
                 anchorRef={getSheetAnchor()}
@@ -418,31 +486,57 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                 <div className="space-y-4">
                     <input
                         value={pollQuestion}
-                        onChange={(e) => setPollQuestion(e.target.value)}
+                        onChange={(e) => {
+                            setPollQuestion(e.target.value);
+                            if (pollError) {
+                                setPollError(null);
+                            }
+                        }}
                         placeholder="Ask a question..."
                         className="w-full bg-black/25 p-3 rounded-xl border border-white/15 focus:border-app-peach outline-none text-white text-lg"
                     />
                     <div className="space-y-3">
                         {pollOptions.map((opt, i) => (
-                            <input
-                                key={i}
-                                value={opt}
-                                onChange={(e) => {
-                                    const newOpts = [...pollOptions];
-                                    newOpts[i] = e.target.value;
-                                    setPollOptions(newOpts);
-                                }}
-                                placeholder={`Option ${i + 1}`}
-                                className="w-full bg-black/25 p-3 rounded-xl border border-white/15 focus:border-app-peach outline-none text-white"
-                            />
+                            <div key={i} className="relative">
+                                <input
+                                    value={opt}
+                                    onChange={(e) => {
+                                        const newOpts = [...pollOptions];
+                                        newOpts[i] = e.target.value;
+                                        setPollOptions(newOpts);
+
+                                        if (pollError) {
+                                            const hasAnyEmpty = newOpts.some((option) => option.trim() === '');
+                                            setPollError(hasAnyEmpty ? 'All poll options are required.' : null);
+                                        }
+                                    }}
+                                    placeholder={`Option ${i + 1}`}
+                                    className={`w-full bg-black/25 p-3 rounded-xl border focus:border-app-peach outline-none text-white ${pollError ? 'border-red-400/80' : 'border-white/15'} ${pollOptions.length > 2 ? 'pr-10' : ''}`}
+                                />
+                                {pollOptions.length > 2 && (
+                                    <button
+                                        type="button"
+                                        aria-label={`Remove option ${i + 1}`}
+                                        onClick={() => handleRemovePollOption(i)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
                         ))}
                     </div>
-                    <button
-                        onClick={() => setPollOptions([...pollOptions, ''])}
-                        className="text-app-peach font-medium flex items-center gap-1"
-                    >
-                        <Plus size={18} /> Add option
-                    </button>
+                    {pollError && (
+                        <p className="text-sm text-red-300">{pollError}</p>
+                    )}
+                    {pollOptions.length < 4 && (
+                        <button
+                            onClick={handleAddPollOption}
+                            className="text-app-peach font-medium flex items-center gap-1"
+                        >
+                            <Plus size={18} /> Add option
+                        </button>
+                    )}
                     <Button onClick={handleSavePoll} className="w-full mt-4">Add Poll</Button>
                 </div>
             </BottomSheet>
@@ -450,7 +544,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
             {/* Audience Sheet */}
             <BottomSheet
                 isOpen={activeSheet === 'audience'}
-                onClose={() => setActiveSheet(null)}
+                onClose={handleDismissSheet}
+                onCancel={handleDismissSheet}
                 title="Audience"
                 floating
                 anchorRef={getSheetAnchor()}
@@ -510,8 +605,8 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
             <BottomSheet
                 isOpen={activeSheet === 'ai'}
                 onOpen={onAiToolsOpen}
-                onClose={() => onAiToolsClose('save')}
-                onCancel={() => onAiToolsClose('cancel')}
+                onClose={handleDismissSheet}
+                onCancel={handleDismissSheet}
                 title="AI Tools"
                 floating
                 anchorRef={getSheetAnchor()}
@@ -610,10 +705,18 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
 
                         {selectedHashtags.length > 0 && (
                             <p className="text-xs text-white/70">
-                                {selectedHashtags.length} hashtag{selectedHashtags.length === 1 ? '' : 's'} selected. They will be added when you tap Done.
+                                {selectedHashtags.length} hashtag{selectedHashtags.length === 1 ? '' : 's'} selected. They will be added when you apply enhancements.
                             </p>
                         )}
                     </div>
+
+                    <Button
+                        onClick={handleApplyAiEnhancements}
+                        disabled={textLoading || imgLoading || hashtagsLoading}
+                        className="w-full mt-2"
+                    >
+                        Apply enhancements
+                    </Button>
                 </div>
             </BottomSheet>
 

@@ -10,11 +10,10 @@ router = APIRouter()
 @router.post("", response_model=TweetResponse, status_code=status.HTTP_201_CREATED)
 async def create_tweet(payload: TweetCreate) -> TweetResponse:
     """
-    Create a new tweet with optional media attachments.
+    Create a new tweet record.
 
     - **user_id**: UUID of the user creating the tweet
     - **text**: Tweet text (1-280 characters)
-    - **media**: Optional list of media items (images/videos from AI or uploads)
     """
     return await tweet_service.create_tweet(payload)
 
