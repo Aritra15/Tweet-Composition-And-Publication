@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
     openrouter_api_key: str | None = None
+    app_url: str = "http://localhost:8000"
     openrouter_model: str = "google/gemma-3-4b-it:free"
     openrouter_image_model: str = "black-forest-labs/flux.2-klein-4b"
     jwt_secret: str = "change-me-in-production"
