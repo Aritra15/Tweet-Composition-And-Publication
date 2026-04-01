@@ -1,21 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { HomeScreen } from './screens/Home';
 import { ComposeScreen } from './screens/Compose';
 import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
 import { ScreenName, type FeedThread, type Thread, type User } from './types';
-import './App.css';
 import { Avatar } from './components/Shared';
-import {
-  Feather,
-  User as UserIcon,
-  Settings,
-  Bookmark,
-  HelpCircle,
-  LogOut,
-  ChevronRight,
-} from 'lucide-react';
+import { Feather } from 'lucide-react';
+import ProfileMenu from './components/ProfileMenu';
+import './App.css';
 
 const API_BASE_URL = 'http://localhost:8000';
 
@@ -24,14 +17,14 @@ const AUTH_USER_KEY  = 'tweet_auth_user';
 
 const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
   return {
-    id: `published-thread-${Date.now()}`,
-    isThread: true,
-    tweets: thread.tweets.map((tweet, index) => ({
-      id: tweet.id || `published-${Date.now()}-${index}`,
+    id: thread.tweets[0].id, // Use the first tweet's ID as the thread ID for simplicity
+    isThread: false,
+    tweets: thread.tweets.map((tweet) => ({
+      id: tweet.id,
       author: {
         id: user.id,
         name: user.name,
-        handle: user.handle,
+        handle: `${user.handle}`,
         avatar: user.avatar,
       },
       text: tweet.text,
@@ -57,6 +50,9 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
 interface ApiTweetResponse {
   id: string;
   user_id: string;
+  username: string;
+  user_handle: string;
+  profile_picture_url: string | null;
   text: string;
   created_at: string;
   media?: Array<{ url: string, type: 'image' | 'video' }>;
@@ -93,8 +89,6 @@ const formatTweetAge = (createdAt: string): string => {
 };
 
 const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
-  const shortUserId = tweet.user_id.slice(0, 8);
-
   return {
     id: tweet.id,
     isThread: false,
@@ -103,9 +97,9 @@ const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
         id: tweet.id,
         author: {
           id: tweet.user_id,
-          name: `User ${shortUserId}`,
-          handle: `@${shortUserId}`,
-          avatar: `https://picsum.photos/seed/${tweet.user_id}/100/100`,
+          name: tweet.username, // In real scenario, we would need to fetch user details separately. For now, we'll just use the ID as the name.
+          handle: `${tweet.user_handle}`,
+          avatar: tweet.profile_picture_url !== null ? tweet.profile_picture_url : `https://picsum.photos/seed/${tweet.user_id}/150/150`,
         },
         text: tweet.text,
         time: formatTweetAge(tweet.created_at),
@@ -128,90 +122,25 @@ const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
   };
 };
 
-// --- Profile Menu ---
-
-const MENU_ITEMS = [
-  { icon: UserIcon,   label: 'Profile',        sub: 'View your public profile' },
-  { icon: Bookmark,   label: 'Saved',           sub: 'Bookmarks & drafts' },
-  { icon: Settings,   label: 'Settings',        sub: 'Account & preferences' },
-  { icon: HelpCircle, label: 'Help & Support',  sub: 'FAQs and contact' },
-];
-
-function ProfileMenu({ user, onClose, onLogout }: { user: User; onClose: () => void; onLogout: () => void }) {
-  return (
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Panel */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: -8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: -8 }}
-        transition={{ type: 'spring', damping: 24, stiffness: 320 }}
-        className="fixed top-20 right-4 z-50 w-72 bg-app-elevated border border-app-border rounded-2xl shadow-2xl overflow-hidden"
-      >
-        {/* User info */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-app-border bg-app-card">
-          <img
-            src={user.avatar}
-            alt={user.name}
-            className="w-11 h-11 rounded-full border border-app-border object-cover"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-app-text font-semibold text-sm truncate">{user.name}</p>
-            <p className="text-app-muted text-xs truncate">{user.handle}</p>
-          </div>
-        </div>
-
-        {/* Menu items */}
-        <div className="py-1">
-          {MENU_ITEMS.map(({ icon: Icon, label, sub }) => (
-            <button
-              key={label}
-              onClick={onClose}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-app-card transition-colors group"
-            >
-              <div className="w-8 h-8 rounded-lg bg-app-card group-hover:bg-app-elevated flex items-center justify-center transition-colors shrink-0">
-                <Icon size={15} className="text-app-muted group-hover:text-app-peach transition-colors" />
-              </div>
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-app-text text-sm font-medium">{label}</p>
-                <p className="text-app-muted text-xs truncate">{sub}</p>
-              </div>
-              <ChevronRight size={14} className="text-app-border group-hover:text-app-muted transition-colors" />
-            </button>
-          ))}
-        </div>
-
-        {/* Logout */}
-        <div className="border-t border-app-border py-1">
-          <button
-            onClick={() => { onClose(); onLogout(); }}
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-app-error/10 transition-colors group"
-          >
-            <div className="w-8 h-8 rounded-lg bg-app-card group-hover:bg-app-error/10 flex items-center justify-center transition-colors shrink-0">
-              <LogOut size={15} className="text-app-muted group-hover:text-app-error transition-colors" />
-            </div>
-            <p className="text-app-text group-hover:text-app-error text-sm font-medium transition-colors">Sign Out</p>
-          </button>
-        </div>
-      </motion.div>
-    </>
-  );
-}
 
 // --- App ---
 
 function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  // Restore session from localStorage
+  const loadUser = (): User | null => {
+    const savedUser = localStorage.getItem(AUTH_USER_KEY);
+    if (!savedUser) return null;
+
+    try {
+      return JSON.parse(savedUser);
+    } catch {
+      localStorage.removeItem(AUTH_USER_KEY);
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      return null;
+    }
+  }
+
+  const [currentUser, setCurrentUser] = useState<User | null>(loadUser);
 
   const [currentScreen, setCurrentScreen] = useState<ScreenName>(ScreenName.HOME);
   const [draftThread, setDraftThread] = useState<Thread | null>(null);
@@ -223,20 +152,6 @@ function App() {
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
 
-  // Restore session from localStorage
-  useEffect(() => {
-    const savedUser = localStorage.getItem(AUTH_USER_KEY);
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser) as User);
-      } catch {
-        localStorage.removeItem(AUTH_USER_KEY);
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-      }
-    }
-    setAuthChecked(true);
-  }, []);
-
   useEffect(() => {
     if (headerRef.current) {
       setHeaderHeight(headerRef.current.offsetHeight);
@@ -247,7 +162,6 @@ function App() {
     if (!currentUser) return;
 
     const fetchInitialTweets = async () => {
-      setTweetLoading(true);
       const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=15&offset=0`);
 
       if (!response.ok) {
@@ -276,6 +190,7 @@ function App() {
     setCurrentUser(null);
     setPublishedFeedItems([]);
     setFetchedFeedItems([]);
+    setTweetLoading(true);
     setDraftThread(null);
     setCurrentScreen(ScreenName.HOME);
   };
@@ -287,9 +202,10 @@ function App() {
     navigate(ScreenName.PUBLISH);
   };
 
-  const handlePublishComplete = () => {
+  const handlePublishComplete = (draftTweetId: string) => {
     if (draftThread && currentUser) {
-      const newFeedItem = mapThreadToFeedItem(draftThread, currentUser);
+      const newDraftThread = { ...draftThread, tweets: draftThread.tweets.map((t) => ({ ...t, id: draftTweetId})) };
+      const newFeedItem = mapThreadToFeedItem(newDraftThread, currentUser);
       setPublishedFeedItems((prev) => [newFeedItem, ...prev]);
     }
     setDraftThread(null);
@@ -329,9 +245,6 @@ function App() {
     setFetchedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
   };
 
-  // Wait until we've checked localStorage before rendering
-  if (!authChecked) return null;
-
   // Not logged in → show auth screen
   if (!currentUser) {
     return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
@@ -346,17 +259,17 @@ function App() {
         </div>
 
         <div className="flex gap-6">
-          <button className="font-semibold text-[18px] py-2 relative text-app-text">
+          <button aria-label="For You" className="font-semibold text-[18px] py-2 relative text-app-text">
             For You
             <div className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-app-peach" />
           </button>
-          <button className="font-semibold text-[18px] py-2 relative text-app-muted">
+          <button aria-label="Following" className="font-semibold text-[18px] py-2 relative text-app-muted">
             Following
           </button>
         </div>
 
         {/* Avatar — opens profile menu */}
-        <button onClick={() => setProfileMenuOpen((o) => !o)} className="rounded-full">
+        <button aria-label="Open profile menu" onClick={() => setProfileMenuOpen((o) => !o)} className="rounded-full">
           <Avatar src={currentUser.avatar} alt={currentUser.name} size="lg" />
         </button>
       </header>
@@ -379,7 +292,7 @@ function App() {
         >
           <HomeScreen
             onNavigate={navigate}
-            userId={currentUser.id}
+            currentUser={currentUser}
             headerRef={headerRef}
             headerHeight={headerHeight}
             publishedFeedItems={publishedFeedItems}

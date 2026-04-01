@@ -73,6 +73,9 @@ class PollResponse(BaseModel):
 class TweetResponse(BaseModel):
     id: str
     user_id: str
+    username: str
+    user_handle: str
+    profile_picture_url: str | None
     text: str
     created_at: datetime
     media: list[MediaResponse] = []

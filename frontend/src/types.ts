@@ -15,7 +15,7 @@ export interface User {
   id: string;
   name: string;
   handle: string;
-  avatar: string;
+  avatar: string | null;
 }
 
 export interface TweetMedia {
@@ -93,4 +93,23 @@ export interface AppState {
   draft: Thread;
   audience: AudienceType;
   scheduleTime: Date | null;
+}
+
+export interface ApiTweetResponse {
+  id: string;
+  user_id: string;
+  username: string;
+  user_handle: string;
+  profile_picture_url: string | null;
+  text: string;
+  created_at: string;
+  media?: Array<{ url: string, type: 'image' | 'video' }>;
+  poll?: {
+    question: string;
+    options: Array<{
+      id: string;
+      text: string;
+      votes_count: number;
+    }>;
+  } | null;
 }

@@ -93,7 +93,7 @@ const CompositionArea: React.FC<CompositionAreaProps> = ({onBack, onNext, curren
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-center gap-2 overflow-hidden">
                                                 <span className="text-xs font-medium text-white/70 shrink-0">
-                                                    {currentUser.handle}
+                                                    @{currentUser.handle}
                                                 </span>
                                                 {remainingChars < 0 ? (
                                                     <span className="text-[10px] font-bold text-red-400 animate-pulse truncate">

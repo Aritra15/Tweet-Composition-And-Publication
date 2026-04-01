@@ -47,6 +47,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [userHandle, setUserHandle] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       setError('Please enter a username.');
       return;
     }
+    if (tab === 'register' && !userHandle.trim()) {
+      setError('Please enter a user handle.');
+      return;
+    }
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
       return;
@@ -81,7 +86,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       const endpoint = tab === 'login' ? '/api/v1/auth/login' : '/api/v1/auth/register';
       const body = tab === 'login'
         ? { email: email.trim(), password }
-        : { username: username.trim(), email: email.trim(), password };
+        : { username: username.trim(), userHandle: userHandle.trim(), profilePictureUrl: null, email: email.trim(), password };
 
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -99,8 +104,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       const appUser: AppUser = {
         id: data.user.id,
         name: data.user.username,
-        handle: `@${data.user.username}`,
-        avatar: `https://picsum.photos/seed/${data.user.id}/150/150`,
+        handle: data.user.user_handle,
+        avatar: data.user.profile_picture_url !== null ? data.user.profile_picture_url : `https://picsum.photos/seed/${data.user.id}/150/150`,
       };
 
       onAuthSuccess(appUser, data.token);
@@ -186,9 +191,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   label="Username"
                   value={username}
                   onChange={setUsername}
-                  placeholder="yourhandle"
+                  placeholder="yourusername"
                   icon={<User size={16} />}
                   autoComplete="username"
+                />
+              )}
+
+              {tab === 'register' && (
+                <Field
+                  label="User Handle"
+                  value={userHandle}
+                  onChange={setUserHandle}
+                  placeholder="yourhandle"
+                  icon={<User size={16} />}
+                  autoComplete="user_handle"
                 />
               )}
 

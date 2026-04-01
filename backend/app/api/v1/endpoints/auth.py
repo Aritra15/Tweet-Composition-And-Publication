@@ -10,6 +10,8 @@ router = APIRouter()
 def register(body: RegisterRequest) -> AuthResponse:
     return auth_service.register(
         username=body.username,
+        user_handle=body.user_handle,
+        profile_picture_url=None,
         email=body.email,
         password=body.password,
     )

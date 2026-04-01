@@ -7,6 +7,8 @@ create extension if not exists pgcrypto;
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   username varchar(50) unique not null,
+  user_handle varchar(50) unique not null
+  profile_picture_url text,
   email varchar(100) unique not null,
   password_hash text not null,
   created_at timestamp default now()

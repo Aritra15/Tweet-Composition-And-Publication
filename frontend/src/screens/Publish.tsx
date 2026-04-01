@@ -9,7 +9,7 @@ interface PublishProps {
   thread: Thread | null;
   currentUser: User;
   onBack: () => void;
-  onPublish: () => void;
+  onPublish: (draftTweetId: string) => void;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
@@ -119,6 +119,8 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
           }
         }
       }
+
+      return createdTweet.id;
     } catch (error) {
       if (createdTweetId) {
         try {
@@ -181,18 +183,19 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
     setIsPublishing(true);
 
     try {
+      let publishedTweetId: string = "";
       if (tweets.length > 1) {
         // await publishThread();
         return;
       } else {
         const tweet = tweets[0];
-        await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
+        publishedTweetId = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
       }
 
       showToast('Published successfully!', 'success');
 
       window.setTimeout(() => {
-        onPublish();
+        onPublish(publishedTweetId);
       }, 900);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Publishing failed', 'error');
@@ -237,7 +240,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="font-bold text-app-text truncate">{currentUser.name}</span>
-                          <span className="text-app-muted truncate">{currentUser.handle}</span>
+                          <span className="text-app-muted truncate">@{currentUser.handle}</span>
                           <span className="text-app-muted text-sm">· 0h</span>
                         </div>
                         <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">

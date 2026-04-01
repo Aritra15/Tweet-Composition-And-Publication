@@ -57,9 +57,15 @@ class TweetService:
 
             tweet = tweet_result.data[0]
 
+            user_info = self.supabase.table("users").select("username", "user_handle", "profile_picture_url").eq("id", tweet["user_id"]).execute()
+            user = user_info.data[0]
+
             return TweetResponse(
                 id=tweet["id"],
                 user_id=tweet["user_id"],
+                username=user["username"],
+                user_handle=user["user_handle"],
+                profile_picture_url=user["profile_picture_url"],
                 text=tweet["text"],
                 created_at=tweet["created_at"],
             )
@@ -138,6 +144,9 @@ class TweetService:
 
             tweet = tweet_result.data[0]
 
+            user_info = self.supabase.table("users").select("username", "user_handle", "profile_picture_url").eq("id", tweet["user_id"]).execute()
+            user = user_info.data[0]
+
             # Get associated media
             media_result = self.supabase.table("media").select("*").eq("tweet_id", tweet_id).execute()
 
@@ -147,6 +156,9 @@ class TweetService:
             return TweetResponse(
                 id=tweet["id"],
                 user_id=tweet["user_id"],
+                username=user["username"],
+                user_handle=user["user_handle"],
+                profile_picture_url=user["profile_picture_url"],
                 text=tweet["text"],
                 created_at=tweet["created_at"],
                 media=media_responses,
@@ -205,6 +217,11 @@ class TweetService:
             return []
 
         tweet_ids = [t["id"] for t in tweets_result.data]
+        user_ids = list(set(t["user_id"] for t in tweets_result.data))
+
+        # Bulk fetch user info for all tweets to avoid N+1 query problem
+        users_result = self.supabase.table("users").select("id", "username", "user_handle", "profile_picture_url").in_("id", user_ids).execute()
+        users_by_id = {u["id"]: u for u in users_result.data} if users_result.data else {}
 
         # Bulk fetch media and polls — 3 calls total instead of 3N
         media_result = self.supabase.table("media").select("*").in_("tweet_id", tweet_ids).execute()
@@ -250,6 +267,9 @@ class TweetService:
             tweet_responses.append(TweetResponse(
                 id=tweet["id"],
                 user_id=tweet["user_id"],
+                user_handle=users_by_id.get(tweet["user_id"], {}).get("user_handle", ""),
+                username=users_by_id.get(tweet["user_id"], {}).get("username", ""),
+                profile_picture_url=users_by_id.get(tweet["user_id"], {}).get("profile_picture_url"),
                 text=tweet["text"],
                 created_at=tweet["created_at"],
                 media=media_responses,

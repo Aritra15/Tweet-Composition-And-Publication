@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { Avatar } from '../components/Shared';
-import { ScreenName, type FeedThread } from '../types';
+import { ScreenName, type FeedThread, type User } from '../types';
 import Feed from '../components/Feed';
 
 interface HomeProps {
   onNavigate: (screen: ScreenName) => void;
-  userId: string;
+  currentUser: User,
   headerRef: React.RefObject<HTMLElement | null>;
   headerHeight: number;
   publishedFeedItems: FeedThread[];
@@ -21,7 +21,7 @@ const MOCK_TWEETS: FeedThread[] = [
     tweets: [
       {
         id: '1a',
-        author: { id: "a", name: 'Alex Rivera', handle: '@arivera', avatar: 'https://picsum.photos/100/100' },
+        author: { id: "a", name: 'Alex Rivera', handle: 'arivera', avatar: 'https://picsum.photos/100/100' },
         text: 'Just deployed the new dark mode UI. The contrast ratios are finally perfect! 🎨✨ #design #uiux',
         time: '2h',
         likes: 142,
@@ -37,7 +37,7 @@ const MOCK_TWEETS: FeedThread[] = [
     tweets: [
       {
         id: '3a',
-        author: { id: "c", name: 'Design Daily', handle: '@designdaily', avatar: 'https://picsum.photos/102/102' },
+        author: { id: "c", name: 'Design Daily', handle: 'designdaily', avatar: 'https://picsum.photos/102/102' },
         text: 'Top 5 tools for mobile prototyping in 2025. Thread 🧵 👇',
         time: '6h',
         likes: 2100,
@@ -47,7 +47,7 @@ const MOCK_TWEETS: FeedThread[] = [
       },
       {
         id: '3b',
-        author: { id: "d", name: 'Design Daily', handle: '@designdaily', avatar: 'https://picsum.photos/102/102' },
+        author: { id: "d", name: 'Design Daily', handle: 'designdaily', avatar: 'https://picsum.photos/102/102' },
         text: '1. Framer - Still the king of interactions.\n2. Figma - The standard.\n3. ProtoPie - For complex sensors.',
         time: '6h',
         likes: 1800,
@@ -57,7 +57,7 @@ const MOCK_TWEETS: FeedThread[] = [
       },
       {
         id: '3c',
-        author: { id: "f", name: 'Design Daily', handle: '@designdaily', avatar: 'https://picsum.photos/102/102' },
+        author: { id: "f", name: 'Design Daily', handle: 'designdaily', avatar: 'https://picsum.photos/102/102' },
         text: '',
         time: '6h',
         likes: 1300,
@@ -73,7 +73,7 @@ const MOCK_TWEETS: FeedThread[] = [
     tweets: [
       {
         id: '2a',
-        author: { id: "b", name: 'Sarah Chen', handle: '@sarahc_dev', avatar: 'https://picsum.photos/101/101' },
+        author: { id: "b", name: 'Sarah Chen', handle: 'sarahc_dev', avatar: 'https://picsum.photos/101/101' },
         text: 'Unpopular opinion: TypeScript enums are actually good if you use them correctly. 🛡️',
         time: '4h',
         likes: 856,
@@ -93,7 +93,7 @@ const MOCK_TWEETS: FeedThread[] = [
   },
 ];
 
-export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef, headerHeight, publishedFeedItems, fetchedFeedItems, onDeleteFeedItem }) => {
+export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, headerRef, headerHeight, publishedFeedItems, fetchedFeedItems, onDeleteFeedItem }) => {
   const [threadTweets, setThreadTweets] = useState<FeedThread | null>(null);
   const isShowingThread = threadTweets !== null;
 
@@ -189,7 +189,7 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef,
             <div className="flex items-center bg-[#242424] rounded-xl p-0 gap-3 group-hover:bg-app-card transition-colors">
               {/* Avatar */}
               <div className="shrink-0 z-10">
-                <Avatar src="https://picsum.photos/150/150" alt="Me" />
+                <Avatar src={currentUser.avatar} alt="Me" />
               </div>
 
               {/* Input */}
@@ -213,7 +213,7 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef,
         {/* Feed */}
         <Feed
           tweetItems={visibleTweets}
-          userId={userId}
+          userId={currentUser.id}
           isThreadOpen={isShowingThread}
           headerRef={headerRef}
           handleOpenThread={handleOpenThread}
@@ -224,9 +224,9 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, userId, headerRef,
         {showFAB && <button
           aria-label="Close"
           onClick={() => onNavigate(ScreenName.COMPOSE)}
-          className="fixed bottom-8 right-8 w-16 h-16 bg-app-peach rounded-full flex items-center justify-center shadow-lg shadow-app-peach/20 hover:scale-110 active:scale-95 transition-transform z-40"
+          className="fixed bottom-8 right-8 w-14 h-14 bg-app-peach rounded-full flex items-center justify-center shadow-lg shadow-app-peach/20 hover:scale-110 active:scale-95 transition-transform z-30"
         >
-          <Plus className="text-app-bg w-9 h-9" />
+          <Plus className="text-app-bg w-8 h-8" />
         </button>}
       </div>
     </>

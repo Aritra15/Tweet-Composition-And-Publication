@@ -27,7 +27,7 @@ class AuthService:
     def __init__(self):
         self.supabase = get_supabase_client()
 
-    def register(self, username: str, email: str, password: str) -> AuthResponse:
+    def register(self, username: str, user_handle: str, profile_picture_url: str | None, email: str, password: str) -> AuthResponse:
         # Check for duplicate email or username
         existing = (
             self.supabase.table("users")
@@ -42,6 +42,8 @@ class AuthService:
             self.supabase.table("users")
             .insert({
                 "username": username,
+                "user_handle": user_handle,
+                "profile_picture_url": profile_picture_url,
                 "email": email,
                 "password_hash": _hash_password(password),
             })
@@ -53,7 +55,7 @@ class AuthService:
 
         user = result.data[0]
         token = _create_token(user["id"], user["username"])
-        return AuthResponse(token=token, user=UserOut(id=user["id"], username=user["username"], email=user["email"]))
+        return AuthResponse(token=token, user=UserOut(id=user["id"], username=user["username"], user_handle=user["user_handle"], profile_picture_url=user["profile_picture_url"], email=user["email"]))
 
     def login(self, email: str, password: str) -> AuthResponse:
         result = (
@@ -73,7 +75,7 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Invalid email or password")
 
         token = _create_token(user["id"], user["username"])
-        return AuthResponse(token=token, user=UserOut(id=user["id"], username=user["username"], email=user["email"]))
+        return AuthResponse(token=token, user=UserOut(id=user["id"], username=user["username"], user_handle=user["user_handle"], profile_picture_url=user["profile_picture_url"], email=user["email"]))
 
 
 auth_service = AuthService()

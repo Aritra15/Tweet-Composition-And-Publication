@@ -157,7 +157,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                       <div className="flex items-start justify-between gap-3 mb-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="font-bold text-app-text truncate">{tweet.author.name}</span>
-                          <span className="text-app-muted truncate">{tweet.author.handle}</span>
+                          <span className="text-app-muted truncate">@{tweet.author.handle}</span>
                           <span className="text-app-muted text-sm whitespace-nowrap">· {tweet.time}</span>
                         </div>
                         {isOwnerItem && index === 0 && (
@@ -247,8 +247,8 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                               const totalVotes = tweet.poll?.options.reduce((sum, o) => sum + o.votesCount, 0) ?? 0;
                               const selectedOptionId = selectedPollOptions[tweet.id];
                               const isSelected = selectedOptionId === option.id;
-                              const isMockUserTweet = tweet.author.id === userId;
-                              const canSelect = !isMockUserTweet;
+                              const isCurrentUserTweet = tweet.author.id === userId;
+                              const canSelect = !isCurrentUserTweet;
                               const hasVoted = !!selectedPollOptions[tweet.id];
 
                               return (

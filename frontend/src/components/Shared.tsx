@@ -56,16 +56,18 @@ export const Button = ({
   );
 };
 
-export const Avatar = ({ src, alt, size = 'md' }: { src: string; alt: string; size?: 'sm' | 'md' | 'lg' }) => {
+export const Avatar = ({ src, alt, size = 'md' }: { src: string | null; alt: string; size?: 'sm' | 'md' | 'lg' }) => {
   const sizeClass = {
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
     lg: 'w-12 h-12',
   }[size];
 
+  const defaultAvatar = `https://www.pinterest.com/ideas/blank-profile-picture-icon/959291402616/`;
+
   return (
     <img
-      src={src}
+      src={src !== null ? src : defaultAvatar}
       alt={alt}
       className={`${sizeClass} rounded-full border border-app-border object-cover bg-app-elevated`}
     />
@@ -193,7 +195,6 @@ export const BottomSheet = ({
       const viewportPadding = 12;
       const availableHeight = Math.max(window.innerHeight - viewportPadding * 2, 280);
       const maxHeight = Math.min(availableHeight, 560);
-      console.log(maxHeight);
 
       let left = rect.left + (rect.width / 2) - (panelWidth / 2) + horizontalOffset;
       left = Math.max(viewportPadding, left);
