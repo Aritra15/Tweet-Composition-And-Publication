@@ -1,4 +1,5 @@
 export const ScreenName = {
+  AUTH: 'AUTH',
   HOME: 'HOME',
   SEARCH: 'SEARCH',
   NOTIFICATIONS: 'NOTIFICATIONS',
