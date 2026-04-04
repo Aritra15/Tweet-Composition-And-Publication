@@ -95,6 +95,11 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
     setLightboxMedia(null);
   };
 
+  const openAuthorProfile = (event: React.MouseEvent<HTMLButtonElement>, author: User) => {
+    event.stopPropagation();
+    onOpenUserProfile?.(author);
+  };
+
   const toFeedComment = (comment: CommentApiResponse): FeedComment => ({
     id: comment.id,
     userId: comment.user_id,
@@ -557,21 +562,19 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                           <div className="flex items-center gap-1.5 min-w-0">
                             <button
                               type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onOpenUserProfile?.(tweet.author);
-                              }}
-                              className="font-bold text-app-text truncate hover:underline underline-offset-2"
+                              aria-label={`Open profile of ${tweet.author.name}`}
+                              disabled={!onOpenUserProfile}
+                              onClick={(event) => openAuthorProfile(event, tweet.author)}
+                              className="font-bold text-app-text truncate hover:underline underline-offset-2 disabled:no-underline disabled:cursor-default"
                             >
                               {tweet.author.name}
                             </button>
                             <button
                               type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onOpenUserProfile?.(tweet.author);
-                              }}
-                              className="text-app-muted truncate hover:text-app-text hover:underline underline-offset-2"
+                              aria-label={`Open profile of @${tweet.author.handle}`}
+                              disabled={!onOpenUserProfile}
+                              onClick={(event) => openAuthorProfile(event, tweet.author)}
+                              className="text-app-muted truncate hover:text-app-text hover:underline underline-offset-2 disabled:hover:text-app-muted disabled:no-underline disabled:cursor-default"
                             >
                               @{tweet.author.handle}
                             </button>
