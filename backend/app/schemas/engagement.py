@@ -14,6 +14,11 @@ class TweetEngagementSummary(BaseModel):
     liked_by_user: bool
 
 
+class EngagementBatchRequest(BaseModel):
+    tweet_ids: list[str] = Field(..., min_length=1, max_length=200)
+    user_id: str | None = None
+
+
 class CommentCreate(BaseModel):
     user_id: str
     content: str = Field(..., min_length=1, max_length=1000)

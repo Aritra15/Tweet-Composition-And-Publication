@@ -8,6 +8,37 @@ class EngagementService:
     def __init__(self):
         self.supabase = get_supabase_client()
 
+    async def get_summaries(self, tweet_ids: list[str], user_id: str | None = None) -> list[TweetEngagementSummary]:
+        if not tweet_ids:
+            return []
+
+        likes_result = self.supabase.table("tweet_likes").select("tweet_id,user_id").in_("tweet_id", tweet_ids).execute()
+        comments_result = self.supabase.table("tweet_comments").select("tweet_id").in_("tweet_id", tweet_ids).is_("deleted_at", "null").execute()
+
+        likes_count_by_tweet: dict[str, int] = {tweet_id: 0 for tweet_id in tweet_ids}
+        liked_by_user_set: set[str] = set()
+
+        for row in (likes_result.data or []):
+            tid = row["tweet_id"]
+            likes_count_by_tweet[tid] = likes_count_by_tweet.get(tid, 0) + 1
+            if user_id and row.get("user_id") == user_id:
+                liked_by_user_set.add(tid)
+
+        comments_count_by_tweet: dict[str, int] = {tweet_id: 0 for tweet_id in tweet_ids}
+        for row in (comments_result.data or []):
+            tid = row["tweet_id"]
+            comments_count_by_tweet[tid] = comments_count_by_tweet.get(tid, 0) + 1
+
+        return [
+            TweetEngagementSummary(
+                tweet_id=tweet_id,
+                likes_count=likes_count_by_tweet.get(tweet_id, 0),
+                comments_count=comments_count_by_tweet.get(tweet_id, 0),
+                liked_by_user=tweet_id in liked_by_user_set,
+            )
+            for tweet_id in tweet_ids
+        ]
+
     async def get_summary(self, tweet_id: str, user_id: str | None = None) -> TweetEngagementSummary:
         likes_result = self.supabase.table("tweet_likes").select("user_id").eq("tweet_id", tweet_id).execute()
         comments_result = self.supabase.table("tweet_comments").select("id").eq("tweet_id", tweet_id).is_("deleted_at", "null").execute()
@@ -25,7 +56,10 @@ class EngagementService:
         )
 
     async def like_tweet(self, tweet_id: str, user_id: str) -> TweetEngagementSummary:
-        self.supabase.table("tweet_likes").upsert({"tweet_id": tweet_id, "user_id": user_id}).execute()
+        self.supabase.table("tweet_likes").upsert(
+            {"tweet_id": tweet_id, "user_id": user_id},
+            on_conflict="user_id,tweet_id",
+        ).execute()
         return await self.get_summary(tweet_id, user_id)
 
     async def unlike_tweet(self, tweet_id: str, user_id: str) -> TweetEngagementSummary:

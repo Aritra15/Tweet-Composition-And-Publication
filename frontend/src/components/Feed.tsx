@@ -31,6 +31,11 @@ type EngagementSummaryResponse = {
   liked_by_user: boolean;
 };
 
+type EngagementBatchRequest = {
+  tweet_ids: string[];
+  user_id: string;
+};
+
 type CommentApiResponse = {
   id: string;
   tweet_id: string;
@@ -64,6 +69,8 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
   const [activeCommentsTweet, setActiveCommentsTweet] = useState<FeedTweet | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [likePendingByTweet, setLikePendingByTweet] = useState<Record<string, boolean>>({});
   const openMenuRef = useRef<HTMLDivElement | null>(null);
 
   const openLightbox = (url: string, type: 'image' | 'video') => {
@@ -163,21 +170,27 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
     let cancelled = false;
 
     const loadSummaries = async () => {
-      const summaries = await Promise.all(
-        tweets.map(async (tweet) => {
-          try {
-            const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/${tweet.id}/summary?user_id=${currentUser.id}`);
-            if (!response.ok) {
-              return null;
-            }
+      let summaries: EngagementSummaryResponse[] = [];
+      try {
+        const payload: EngagementBatchRequest = {
+          tweet_ids: tweets.map((tweet) => tweet.id),
+          user_id: currentUser.id,
+        };
 
-            const summary = (await response.json()) as EngagementSummaryResponse;
-            return { tweetId: tweet.id, summary };
-          } catch {
-            return null;
-          }
-        }),
-      );
+        const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/summaries`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        summaries = (await response.json()) as EngagementSummaryResponse[];
+      } catch {
+        return;
+      }
 
       if (cancelled) {
         return;
@@ -186,14 +199,12 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
       setEngagementState((prev) => {
         const next = { ...prev };
 
-        for (const item of summaries) {
-          if (!item) continue;
-
-          const current = next[item.tweetId];
-          next[item.tweetId] = {
-            likesCount: item.summary.likes_count,
-            commentsCount: item.summary.comments_count,
-            likedByMe: item.summary.liked_by_user,
+        for (const summary of summaries) {
+          const current = next[summary.tweet_id];
+          next[summary.tweet_id] = {
+            likesCount: summary.likes_count,
+            commentsCount: summary.comments_count,
+            likedByMe: summary.liked_by_user,
             comments: current?.comments ?? [],
           };
         }
@@ -210,6 +221,12 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
   }, [tweetItems, currentUser.id]);
 
   const toggleLike = async (tweet: FeedTweet) => {
+    if (likePendingByTweet[tweet.id]) {
+      return;
+    }
+
+    setLikePendingByTweet((prev) => ({ ...prev, [tweet.id]: true }));
+
     const current = getTweetEngagement(tweet);
     const optimisticLiked = !current.likedByMe;
 
@@ -246,18 +263,26 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
         },
       }));
     } catch {
-      await refreshTweetSummary(tweet.id);
+      try {
+        await refreshTweetSummary(tweet.id);
+      } catch {
+        // keep optimistic result when summary refresh fails
+      }
+    } finally {
+      setLikePendingByTweet((prev) => ({ ...prev, [tweet.id]: false }));
     }
   };
 
   const openComments = async (tweet: FeedTweet) => {
     setActiveCommentsTweet(tweet);
+    setLoadingComments(true);
 
     try {
       await refreshTweetComments(tweet);
-      await refreshTweetSummary(tweet.id);
     } catch {
       // Keep sheet open even when fetch fails.
+    } finally {
+      setLoadingComments(false);
     }
   };
 
@@ -652,7 +677,13 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                 </div>
 
                 <div className="space-y-2">
-                  {(getTweetEngagement(activeCommentsTweet).comments).length === 0 && (
+                  {loadingComments && (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-sm text-white/60">
+                      Loading comments...
+                    </div>
+                  )}
+
+                  {!loadingComments && (getTweetEngagement(activeCommentsTweet).comments).length === 0 && (
                     <div className="rounded-xl border border-dashed border-white/20 p-3 text-xs text-white/55">
                       No comments yet. Start the conversation.
                     </div>

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 
-from app.schemas.engagement import CommentCreate, CommentResponse, LikeToggleRequest, TweetEngagementSummary
+from app.schemas.engagement import EngagementBatchRequest, CommentCreate, CommentResponse, LikeToggleRequest, TweetEngagementSummary
 from app.services.engagement_service import engagement_service
 
 router = APIRouter()
@@ -9,6 +9,11 @@ router = APIRouter()
 @router.get("/tweets/{tweet_id}/summary", response_model=TweetEngagementSummary)
 async def get_tweet_engagement_summary(tweet_id: str, user_id: str | None = Query(default=None)) -> TweetEngagementSummary:
     return await engagement_service.get_summary(tweet_id, user_id)
+
+
+@router.post("/tweets/summaries", response_model=list[TweetEngagementSummary])
+async def get_tweet_engagement_summaries(payload: EngagementBatchRequest) -> list[TweetEngagementSummary]:
+    return await engagement_service.get_summaries(payload.tweet_ids, payload.user_id)
 
 
 @router.post("/tweets/{tweet_id}/likes", response_model=TweetEngagementSummary)
