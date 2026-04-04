@@ -96,6 +96,7 @@ class TweetResponse(BaseModel):
     created_at: datetime
     likes_count: int = 0
     comments_count: int = 0
+    liked_by_user: bool = False
     media: list[MediaResponse] = []
     poll: PollResponse | None = None
     thread_id: str | None = None

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { Avatar, TweetActions } from "./Shared";
-import type { FeedMedia, FeedThread, FeedTweet, User } from "../types";
+import type { FeedMedia, FeedPollOption, FeedThread, FeedTweet, User } from "../types";
 import VideoPlayer from './VideoPlayer';
 import MediaLightbox from './MediaLightbox';
 
@@ -36,6 +36,17 @@ type EngagementBatchRequest = {
   user_id: string;
 };
 
+type PollVoteApiResponse = {
+  id: string;
+  tweet_id: string;
+  voted_option_id: string | null;
+  options: Array<{
+    id: string;
+    text: string;
+    votes_count: number;
+  }>;
+};
+
 type CommentApiResponse = {
   id: string;
   tweet_id: string;
@@ -61,6 +72,8 @@ interface FeedProps {
 const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, headerRef, handleOpenThread, onDeleteItem }) => {
   const tweetCount = isThreadOpen ? tweetItems[0].tweets.length : 2;
   const [selectedPollOptions, setSelectedPollOptions] = useState<Record<string, string>>({});
+  const [pollOptionsByTweet, setPollOptionsByTweet] = useState<Record<string, FeedPollOption[]>>({});
+  const [pollVotePendingByTweet, setPollVotePendingByTweet] = useState<Record<string, boolean>>({});
   const [lightboxMedia, setLightboxMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [openMenuItemId, setOpenMenuItemId] = useState<string | null>(null);
@@ -95,7 +108,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
     return engagementState[tweet.id] ?? {
       likesCount: tweet.likes,
       commentsCount: tweet.replies,
-      likedByMe: false,
+      likedByMe: tweet.likedByMe ?? false,
       comments: [],
     };
   };
@@ -160,6 +173,25 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
       };
     });
   };
+
+  useEffect(() => {
+    const nextSelected: Record<string, string> = {};
+    const nextOptions: Record<string, FeedPollOption[]> = {};
+
+    for (const item of tweetItems) {
+      for (const tweet of item.tweets) {
+        if (!tweet.poll) continue;
+
+        nextOptions[tweet.id] = tweet.poll.options;
+        if (tweet.poll.votedOptionId) {
+          nextSelected[tweet.id] = tweet.poll.votedOptionId;
+        }
+      }
+    }
+
+    setSelectedPollOptions(nextSelected);
+    setPollOptionsByTweet(nextOptions);
+  }, [tweetItems]);
 
   useEffect(() => {
     const tweets = tweetItems.flatMap((item) => item.tweets);
@@ -365,17 +397,57 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
     return 'w-0';
   };
 
-  const handlePollOptionClick = (tweetId: string, optionId: string) => {
-    setSelectedPollOptions((prev) => {
-      if (prev[tweetId]) {
-        return prev;
+  const handlePollOptionClick = async (tweet: FeedTweet, optionId: string) => {
+    const pollId = tweet.poll?.id;
+    if (!pollId) {
+      return;
+    }
+
+    if (pollVotePendingByTweet[tweet.id]) {
+      return;
+    }
+
+    setPollVotePendingByTweet((prev) => ({ ...prev, [tweet.id]: true }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/polls/${pollId}/votes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          option_id: optionId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit poll vote');
       }
 
-      return {
+      const payload = (await response.json()) as PollVoteApiResponse;
+      const nextOptions: FeedPollOption[] = payload.options
+        .map((option) => ({
+          id: option.id,
+          text: option.text,
+          votesCount: option.votes_count,
+        }));
+
+      setPollOptionsByTweet((prev) => ({
         ...prev,
-        [tweetId]: optionId,
-      };
-    });
+        [tweet.id]: nextOptions,
+      }));
+
+      const votedOptionId = payload.voted_option_id;
+      if (typeof votedOptionId === 'string' && votedOptionId.length > 0) {
+        setSelectedPollOptions((prev) => ({
+          ...prev,
+          [tweet.id]: votedOptionId,
+        }));
+      }
+    } catch {
+      // Keep current poll state if vote request fails.
+    } finally {
+      setPollVotePendingByTweet((prev) => ({ ...prev, [tweet.id]: false }));
+    }
   };
 
   const handleDeleteClick = async (item: FeedThread) => {
@@ -568,23 +640,27 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                         <div className="w-[85%] mb-3 rounded-xl border border-app-border bg-app-card/20 p-3">
                           <p className="text-sm font-semibold text-app-text mb-2">{tweet.poll.question}</p>
                           <div className="space-y-2">
-                            {tweet.poll.options.map((option) => {
-                              const totalVotes = tweet.poll?.options.reduce((sum, o) => sum + o.votesCount, 0) ?? 0;
-                              const selectedOptionId = selectedPollOptions[tweet.id];
+                            {(pollOptionsByTweet[tweet.id] ?? tweet.poll.options).map((option) => {
+                              const visibleOptions = pollOptionsByTweet[tweet.id] ?? tweet.poll?.options ?? [];
+                              const totalVotes = visibleOptions.reduce((sum, item) => sum + item.votesCount, 0);
+                              const selectedOptionId = selectedPollOptions[tweet.id] ?? tweet.poll?.votedOptionId;
                               const isSelected = selectedOptionId === option.id;
-                              const isCurrentUserTweet = tweet.author.id === currentUser.id;
-                              const canSelect = !isCurrentUserTweet;
-                              const hasVoted = !!selectedPollOptions[tweet.id];
+                              const canSelect = Boolean(tweet.poll?.id);
+                              const hasVoted = !!selectedOptionId;
+                              const isPending = !!pollVotePendingByTweet[tweet.id];
 
                               return (
                                 <button
                                   key={option.id}
                                   type="button"
-                                  onClick={() => canSelect && !hasVoted && handlePollOptionClick(tweet.id, option.id)}
-                                  disabled={!canSelect || hasVoted}
-                                  className={`w-full text-left text-xs text-app-text ${canSelect && !hasVoted ? 'cursor-pointer' : 'cursor-default'}`}
+                                  onClick={() => {
+                                    if (!canSelect || hasVoted || isPending) return;
+                                    void handlePollOptionClick(tweet, option.id);
+                                  }}
+                                  disabled={!canSelect || hasVoted || isPending}
+                                  className={`w-full text-left text-xs text-app-text ${canSelect && !hasVoted && !isPending ? 'cursor-pointer' : 'cursor-default'} ${isPending ? 'opacity-70' : ''}`}
                                 >
-                                  {canSelect && !hasVoted ? (
+                                  {canSelect && !hasVoted && !isPending ? (
                                     <div className="flex items-center justify-between py-1">
                                       <span className="truncate pr-2">{option.text}</span>
                                       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-app-peach bg-app-peach' : 'border-app-muted'}`}>
