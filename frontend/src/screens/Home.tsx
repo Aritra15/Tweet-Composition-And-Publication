@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { Avatar } from '../components/Shared';
 import { ScreenName, type FeedThread, type User } from '../types';
-import Feed from '../components/Feed';
+import Feed from '../components/Feed.tsx';
 
 interface HomeProps {
   onNavigate: (screen: ScreenName) => void;

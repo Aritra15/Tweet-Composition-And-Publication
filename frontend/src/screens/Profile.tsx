@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, CalendarDays, Camera, PenSquare, Rows3 } from 'lucide-react';
 import { Avatar } from '../components/Shared';
-import Feed from '../components/Feed';
+import Feed from '../components/Feed.tsx';
 import { ScreenName, type FeedThread, type User } from '../types';
 
 interface ProfileScreenProps {
