@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { HomeScreen } from './screens/Home';
 import { ProfileScreen } from './screens/Profile';
 import { HelpSupportScreen } from './screens/HelpSupport';
+import { SettingsScreen } from './screens/Settings';
 import { ComposeScreen } from './screens/Compose';
 import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
@@ -306,6 +307,11 @@ function App() {
             <span className="font-semibold text-[18px] text-app-text">Profile</span>
             <span className="text-[12px] text-app-muted">@{currentUser.handle}</span>
           </div>
+        ) : currentScreen === ScreenName.SETTINGS ? (
+          <div className="flex flex-col items-center">
+            <span className="font-semibold text-[18px] text-app-text">Settings</span>
+            <span className="text-[12px] text-app-muted">Account & preferences</span>
+          </div>
         ) : currentScreen === ScreenName.HELP ? (
           <div className="flex flex-col items-center">
             <span className="font-semibold text-[18px] text-app-text">Help & Support</span>
@@ -339,6 +345,10 @@ function App() {
             onOpenProfile={() => {
               setProfileMenuOpen(false);
               navigate(ScreenName.PROFILE);
+            }}
+            onOpenSettings={() => {
+              setProfileMenuOpen(false);
+              navigate(ScreenName.SETTINGS);
             }}
             onOpenHelpSupport={() => {
               setProfileMenuOpen(false);
@@ -400,6 +410,13 @@ function App() {
                   <HelpSupportScreen
                     onNavigate={navigate}
                     currentUser={currentUser}
+                  />
+                )}
+
+                {currentScreen === ScreenName.SETTINGS && (
+                  <SettingsScreen
+                    currentUser={currentUser}
+                    onNavigate={navigate}
                   />
                 )}
               </div>

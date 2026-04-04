@@ -7,7 +7,7 @@ create extension if not exists pgcrypto;
 create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   username varchar(50) unique not null,
-  user_handle varchar(50) unique not null
+  user_handle varchar(50) unique not null,
   profile_picture_url text,
   email varchar(100) unique not null,
   password_hash text not null,
@@ -65,6 +65,17 @@ create table if not exists poll_options (
   unique (poll_id, position)
 );
 
+-- POLL_VOTES TABLE
+-- Each user can cast one vote per poll, and can change that vote later.
+create table if not exists poll_votes (
+  id uuid primary key default gen_random_uuid(),
+  poll_id uuid not null references polls(id) on delete cascade,
+  option_id uuid not null references poll_options(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  created_at timestamp default now(),
+  unique (poll_id, user_id)
+);
+
 -- MEDIA TABLE
 create table if not exists media (
   id uuid primary key default gen_random_uuid(),
@@ -84,3 +95,6 @@ create index if not exists idx_thread_tweets_thread_id on thread_tweets(thread_i
 create index if not exists idx_thread_tweets_tweet_id on thread_tweets(tweet_id);
 create index if not exists idx_polls_tweet_id on polls(tweet_id);
 create index if not exists idx_poll_options_poll_id on poll_options(poll_id);
+create index if not exists idx_poll_votes_poll_id on poll_votes(poll_id);
+create index if not exists idx_poll_votes_option_id on poll_votes(option_id);
+create index if not exists idx_poll_votes_user_id on poll_votes(user_id);

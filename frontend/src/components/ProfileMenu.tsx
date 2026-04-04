@@ -7,6 +7,7 @@ interface ProfileMenuProps {
   onClose: () => void;
   onLogout: () => void;
   onOpenProfile: () => void;
+  onOpenSettings: () => void;
   onOpenHelpSupport: () => void;
 }
 
@@ -19,7 +20,7 @@ const MENU_ITEMS = [
   { icon: HelpCircle, label: 'Help & Support',  sub: 'FAQs and contact' },
 ];
 
-const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onClose, onLogout, onOpenProfile, onOpenHelpSupport }: ProfileMenuProps) => {
+const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onClose, onLogout, onOpenProfile, onOpenSettings, onOpenHelpSupport }: ProfileMenuProps) => {
   const defaultAvatar = `https://www.pinterest.com/ideas/blank-profile-picture-icon/959291402616/`;
 
   return (
@@ -67,6 +68,11 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ user, onClose, onLogout, onOp
 
                 if (label === 'Help & Support') {
                   onOpenHelpSupport();
+                  return;
+                }
+
+                if (label === 'Settings') {
+                  onOpenSettings();
                   return;
                 }
 

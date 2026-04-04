@@ -3,6 +3,7 @@ from fastapi import APIRouter, status
 from app.schemas.tweet import (
     PollAttachCreate,
     PollOptionAttachCreate,
+    PollVoteCreate,
     PollOptionResponse,
     PollResponse,
 )
@@ -32,3 +33,15 @@ async def create_poll_option(poll_id: str, payload: PollOptionAttachCreate) -> P
     - **text**: Option text
     """
     return await poll_service.add_poll_option(poll_id, payload)
+
+
+@router.post("/{poll_id}/votes", response_model=PollResponse)
+async def vote_poll(poll_id: str, payload: PollVoteCreate) -> PollResponse:
+    """
+    Cast or update a user's vote for a poll.
+
+    - **poll_id**: UUID of the poll
+    - **user_id**: UUID of the voting user
+    - **option_id**: UUID of the selected option
+    """
+    return await poll_service.vote_poll(poll_id, payload)
