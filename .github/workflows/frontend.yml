@@ -62,4 +62,4 @@ jobs:
           git push fork sync-branch:main --force
 
       - name: Trigger Netlify deploy
-        run: curl -X POST -w "\nHTTP Status: %{http_code}\n" ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
+        run: curl -X POST -w '%{http_code}' ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
