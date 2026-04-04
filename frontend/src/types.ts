@@ -105,6 +105,8 @@ export interface ApiTweetResponse {
   profile_picture_url: string | null;
   text: string;
   created_at: string;
+  likes_count?: number;
+  comments_count?: number;
   media?: Array<{ url: string, type: 'image' | 'video' }>;
   poll?: {
     question: string;

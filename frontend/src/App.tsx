@@ -61,6 +61,8 @@ interface ApiTweetResponse {
   profile_picture_url: string | null;
   text: string;
   created_at: string;
+  likes_count?: number;
+  comments_count?: number;
   media?: Array<{ url: string, type: 'image' | 'video' }>;
   poll?: {
     question: string;
@@ -109,8 +111,8 @@ const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
         },
         text: tweet.text,
         time: formatTweetAge(tweet.created_at),
-        likes: 0,
-        replies: 0,
+        likes: tweet.likes_count ?? 0,
+        replies: tweet.comments_count ?? 0,
         reposts: 0,
         media: (tweet.media ?? []).map((item) => ({url: item.url, type: item.type})),
         poll: tweet.poll
