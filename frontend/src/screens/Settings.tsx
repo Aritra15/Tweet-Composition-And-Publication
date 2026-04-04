@@ -14,7 +14,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ currentUser, onN
   const [showSensitiveContent, setShowSensitiveContent] = useState(true);
 
   return (
-    <div className="mt-3 mb-5 rounded-2xl bg-[#1a1d21]/95 border border-white/10 shadow-[0_18px_45px_rgba(0,0,0,0.38)] overflow-hidden">
+    <div className="rounded-2xl bg-[#1a1d21]/95 border border-white/10 shadow-[0_18px_45px_rgba(0,0,0,0.38)] overflow-hidden">
       <section className="px-5 pt-5 pb-4 border-b border-white/10 bg-[linear-gradient(180deg,#171a1e_0%,#121417_100%)]">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-peach/80">Preferences</p>
         <h2 className="mt-2 text-2xl font-bold text-app-text">Settings</h2>

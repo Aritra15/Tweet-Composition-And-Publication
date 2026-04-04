@@ -99,7 +99,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
     userId: comment.user_id,
     userName: comment.user_name,
     userHandle: comment.user_handle,
-    profilePictureUrl: comment.profile_picture_url,
+    profilePictureUrl: comment.profile_picture_url !== null ? comment.profile_picture_url : `https://picsum.photos/seed/${comment.user_id}/150/150`,
     content: comment.content,
     createdAt: comment.created_at,
   });
@@ -528,12 +528,6 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                 : "bg-[#15191d]/85 border-white/10 hover:border-white/20 hover:bg-[#1a1f23]/85")
             }
           >
-            {isThreadItem && (
-              <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-peach/80 border-b border-app-peach/15 bg-app-peach/[0.06]">
-                Thread · {item.tweets.length} posts
-              </div>
-            )}
-
             {item.tweets.slice(0, tweetCount).map((tweet: FeedTweet, index: number) => {
               const showAuthorMeta = !isThreadItem || index === 0;
 
@@ -544,11 +538,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                   )}
                   <div className="flex gap-3">
                     <div className="shrink-0 z-10 w-10 flex justify-center">
-                      {showAuthorMeta ? (
-                        <Avatar src={tweet.author.avatar} alt={tweet.author.name} />
-                      ) : (
-                        <span className="mt-3 h-2.5 w-2.5 rounded-full bg-app-peach ring-2 ring-[#1a1f23]" />
-                      )}
+                      <Avatar src={tweet.author.avatar} alt={tweet.author.name} />
                     </div>
                     <div className="flex-1 min-w-0">
                       {showAuthorMeta ? (
@@ -793,7 +783,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                   <textarea
                     value={commentDraft}
                     onChange={(event) => setCommentDraft(event.target.value)}
-                    className="w-full min-h-[86px] rounded-lg border border-white/10 bg-[#0a0d12] px-3 py-2 text-sm text-white resize-y"
+                    className="w-full min-h-[86px] rounded-lg border border-white/10 bg-[#0a0d12] px-3 py-2 text-sm text-white resize-none"
                     placeholder="Write your reply"
                   />
                   <div className="mt-2 flex justify-end">

@@ -9,16 +9,17 @@ import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
 import { ScreenName, type ApiTweetResponse, type FeedThread, type FeedTweet, type Thread, type User } from './types';
 import { Avatar } from './components/Shared';
-import { CalendarClock, Feather, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Feather, Sparkles, TrendingUp } from 'lucide-react';
 import ProfileMenu from './components/ProfileMenu';
 import './App.css';
 
 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+const FEED_PAGE_SIZE = 15;
 
 const AUTH_TOKEN_KEY = 'tweet_auth_token';
-const AUTH_USER_KEY  = 'tweet_auth_user';
+const AUTH_USER_KEY = 'tweet_auth_user';
 
 const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
   return {
@@ -38,7 +39,7 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
       replies: 0,
       reposts: 0,
       likedByMe: false,
-      media: tweet.media.map((m) => ({url: m.url, type: m.type})),
+      media: tweet.media.map((m) => ({ url: m.url, type: m.type })),
       poll: tweet.poll
         ? {
           id: tweet.poll.id,
@@ -149,6 +150,39 @@ const mapApiTweetsToFeedThreads = (tweets: ApiTweetResponse[]): FeedThread[] => 
     });
 };
 
+const mergeFeedThreads = (existing: FeedThread[], incoming: FeedThread[]): FeedThread[] => {
+  const byId = new Map<string, FeedThread>();
+
+  existing.forEach((thread) => {
+    byId.set(thread.id, thread);
+  });
+
+  incoming.forEach((thread) => {
+    const current = byId.get(thread.id);
+    if (!current) {
+      byId.set(thread.id, thread);
+      return;
+    }
+
+    const seenTweetIds = new Set(current.tweets.map((tweet) => tweet.id));
+    const mergedTweets = [...current.tweets];
+
+    thread.tweets.forEach((tweet) => {
+      if (!seenTweetIds.has(tweet.id)) {
+        mergedTweets.push(tweet);
+      }
+    });
+
+    byId.set(thread.id, {
+      ...current,
+      isThread: mergedTweets.length > 1,
+      tweets: mergedTweets,
+    });
+  });
+
+  return Array.from(byId.values());
+};
+
 
 // --- App ---
 
@@ -174,10 +208,14 @@ function App() {
   const [publishedFeedItems, setPublishedFeedItems] = useState<FeedThread[]>([]);
   const [fetchedFeedItems, setFetchedFeedItems] = useState<FeedThread[]>([]);
   const [tweetLoading, setTweetLoading] = useState(true);
+  const [isLoadingMoreTweets, setIsLoadingMoreTweets] = useState(false);
+  const [hasMoreFetchedTweets, setHasMoreFetchedTweets] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const headerRef = useRef<HTMLElement | null>(null);
+  const mainPanelRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [mainPanelLeft, setMainPanelLeft] = useState(0);
 
   useEffect(() => {
     if (headerRef.current) {
@@ -186,10 +224,40 @@ function App() {
   }, [currentUser]);
 
   useEffect(() => {
+    const updatePanelPosition = () => {
+      if (mainPanelRef.current) {
+        const rect = mainPanelRef.current.getBoundingClientRect();
+        setMainPanelLeft(rect.left);
+      }
+    };
+
+    updatePanelPosition();
+    window.addEventListener('resize', updatePanelPosition);
+
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition);
+    };
+  }, [currentScreen, tweetLoading]);
+
+  useEffect(() => {
+    const shouldResetScroll =
+      currentScreen === ScreenName.HOME ||
+      currentScreen === ScreenName.PROFILE ||
+      currentScreen === ScreenName.SETTINGS ||
+      currentScreen === ScreenName.HELP;
+
+    if (!shouldResetScroll) {
+      return;
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [currentScreen]);
+
+  useEffect(() => {
     if (!currentUser) return;
 
     const fetchInitialTweets = async () => {
-      const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=15&offset=0&viewer_user_id=${currentUser.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=${FEED_PAGE_SIZE}&offset=0&viewer_user_id=${currentUser.id}`);
 
       if (!response.ok) {
         setTweetLoading(false);
@@ -198,11 +266,39 @@ function App() {
 
       const tweets: ApiTweetResponse[] = await response.json();
       setFetchedFeedItems(mapApiTweetsToFeedThreads(tweets));
+      setHasMoreFetchedTweets(tweets.length === FEED_PAGE_SIZE);
       setTweetLoading(false);
     };
 
     void fetchInitialTweets();
   }, [currentUser]);
+
+  const handleLoadMoreHomeTweets = async () => {
+    if (!currentUser || tweetLoading || isLoadingMoreTweets || !hasMoreFetchedTweets) {
+      return;
+    }
+
+    setIsLoadingMoreTweets(true);
+
+    try {
+      const currentTweetCount = fetchedFeedItems.reduce((count, thread) => count + thread.tweets.length, 0);
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/tweets?limit=${FEED_PAGE_SIZE}&offset=${currentTweetCount}&viewer_user_id=${currentUser.id}`,
+      );
+
+      if (!response.ok) {
+        return;
+      }
+
+      const tweets: ApiTweetResponse[] = await response.json();
+      const nextThreads = mapApiTweetsToFeedThreads(tweets);
+
+      setFetchedFeedItems((prev) => mergeFeedThreads(prev, nextThreads));
+      setHasMoreFetchedTweets(tweets.length === FEED_PAGE_SIZE);
+    } finally {
+      setIsLoadingMoreTweets(false);
+    }
+  };
 
   const handleAuthSuccess = (user: User, token: string) => {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
@@ -218,6 +314,8 @@ function App() {
     setPublishedFeedItems([]);
     setFetchedFeedItems([]);
     setTweetLoading(true);
+    setIsLoadingMoreTweets(false);
+    setHasMoreFetchedTweets(true);
     setDraftThread(null);
     setCurrentScreen(ScreenName.HOME);
   };
@@ -294,13 +392,21 @@ function App() {
     return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
   }
 
+  const isUtilityScreen =
+    currentScreen === ScreenName.PROFILE ||
+    currentScreen === ScreenName.SETTINGS ||
+    currentScreen === ScreenName.HELP;
+
   return (
     <>
       {/* Header */}
       <header ref={headerRef} className="fixed top-0 z-30 w-screen bg-[#0a0a0a]/80 backdrop-blur-md px-4 py-4 flex items-center justify-between">
-        <div className="w-12 h-12 rounded-full bg-app-peach flex items-center justify-center">
-          <Feather className="text-app-bg w-7 h-7" />
-        </div>
+        <>
+          <div className="w-12 h-12 rounded-full bg-app-peach items-center justify-center hidden sm:flex">
+            <Feather className="text-app-bg w-7 h-7" />
+          </div>
+          <div className="w-12 h-12 sm:hidden" />
+        </>
 
         {currentScreen === ScreenName.PROFILE ? (
           <div className="flex flex-col items-center">
@@ -334,6 +440,19 @@ function App() {
           <Avatar src={currentUser.avatar} alt={currentUser.name} size="lg" />
         </button>
       </header>
+
+      {isUtilityScreen && (
+        <div style={{ height: headerHeight }} className="fixed top-0 left-0 w-screen z-40 py-3 flex flex-col justify-end items-start pointer-events-none">
+          <button
+            title="Go to Home"
+            onClick={() => navigate(ScreenName.HOME)}
+            style={{ marginLeft: mainPanelLeft + 5 }}
+            className="pointer-events-auto bg-[#0a0a0a] border border-gray-600 p-1.5 rounded-full group hover:bg-[#1a1a1a] transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-300 group-hover:text-gray-100 transition-colors" />
+          </button>
+        </div>
+      )}
 
       {/* Profile menu */}
       <AnimatePresence>
@@ -383,7 +502,7 @@ function App() {
                 </div>
               </aside>
 
-              <div className="min-h-screen rounded-2xl border border-white/10 bg-app-bg shadow-[0_26px_80px_rgba(0,0,0,0.52)] overflow-hidden relative">
+              <div ref={mainPanelRef} className="rounded-2xl border border-white/10 bg-app-bg shadow-[0_26px_80px_rgba(0,0,0,0.52)] overflow-hidden relative">
                 {currentScreen === ScreenName.HOME && (
                   <HomeScreen
                     onNavigate={navigate}
@@ -392,6 +511,9 @@ function App() {
                     headerHeight={headerHeight}
                     publishedFeedItems={publishedFeedItems}
                     fetchedFeedItems={fetchedFeedItems}
+                    onLoadMore={handleLoadMoreHomeTweets}
+                    hasMoreFeedItems={hasMoreFetchedTweets}
+                    isLoadingMoreFeedItems={isLoadingMoreTweets}
                     onDeleteFeedItem={handleDeleteFeedItem}
                   />
                 )}
@@ -408,7 +530,6 @@ function App() {
 
                 {currentScreen === ScreenName.HELP && (
                   <HelpSupportScreen
-                    onNavigate={navigate}
                     currentUser={currentUser}
                   />
                 )}
@@ -442,7 +563,7 @@ function App() {
           </div>
 
           <AnimatePresence>
-            {(currentScreen === ScreenName.COMPOSE || currentScreen === ScreenName.PUBLISH) && (
+            {currentScreen === ScreenName.COMPOSE &&
               <ComposeScreen
                 key="compose"
                 onBack={handleComposeBack}
@@ -450,7 +571,7 @@ function App() {
                 currentUser={currentUser}
                 initialThread={draftThread}
               />
-            )}
+            }
 
             {currentScreen === ScreenName.PUBLISH && (
               <PublishScreen
