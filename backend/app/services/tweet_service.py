@@ -285,8 +285,52 @@ class TweetService:
         if not tweets_result.data:
             return []
 
-        tweet_ids = [t["id"] for t in tweets_result.data]
-        user_ids = list(set(t["user_id"] for t in tweets_result.data))
+        visible_tweets = list(tweets_result.data)
+        initial_tweet_ids = [tweet["id"] for tweet in visible_tweets]
+
+        # If any tweet in the page belongs to a thread, include all tweets from that thread
+        # so the UI can consistently render thread polls and vote state after refresh.
+        initial_thread_rows_result = self.supabase.table("thread_tweets")\
+            .select("tweet_id,thread_id,position")\
+            .in_("tweet_id", initial_tweet_ids)\
+            .execute()
+
+        initial_thread_rows = initial_thread_rows_result.data or []
+        thread_ids = list({row["thread_id"] for row in initial_thread_rows})
+        thread_rows = initial_thread_rows
+
+        if thread_ids:
+            full_thread_rows_result = self.supabase.table("thread_tweets")\
+                .select("tweet_id,thread_id,position")\
+                .in_("thread_id", thread_ids)\
+                .execute()
+
+            thread_rows = full_thread_rows_result.data or []
+            all_thread_tweet_ids = {row["tweet_id"] for row in thread_rows}
+            known_ids = {tweet["id"] for tweet in visible_tweets}
+            missing_tweet_ids = [tweet_id for tweet_id in all_thread_tweet_ids if tweet_id not in known_ids]
+
+            if missing_tweet_ids:
+                missing_tweets_result = self.supabase.table("tweets")\
+                    .select("*")\
+                    .in_("id", missing_tweet_ids)\
+                    .execute()
+
+                visible_tweets.extend(missing_tweets_result.data or [])
+
+        # Dedupe while preserving order: page tweets first, then appended thread siblings.
+        tweets_by_id: dict[str, dict] = {}
+        ordered_tweet_ids: list[str] = []
+        for tweet in visible_tweets:
+            tweet_id = tweet["id"]
+            if tweet_id in tweets_by_id:
+                continue
+            tweets_by_id[tweet_id] = tweet
+            ordered_tweet_ids.append(tweet_id)
+
+        expanded_tweets = [tweets_by_id[tweet_id] for tweet_id in ordered_tweet_ids]
+        tweet_ids = ordered_tweet_ids
+        user_ids = list({tweet["user_id"] for tweet in expanded_tweets})
 
         # Bulk fetch user info for all tweets to avoid N+1 query problem
         users_result = self.supabase.table("users").select("id", "username", "user_handle", "profile_picture_url").in_("id", user_ids).execute()
@@ -301,7 +345,6 @@ class TweetService:
         poll_ids = [p["id"] for p in polls_result.data] if polls_result.data else []
         poll_options_result = self.supabase.table("poll_options").select("*").in_("poll_id", poll_ids).execute() if poll_ids else None
         poll_votes_result = self.supabase.table("poll_votes").select("poll_id,option_id,user_id").in_("poll_id", poll_ids).execute() if poll_ids else None
-        thread_tweets_result = self.supabase.table("thread_tweets").select("tweet_id,thread_id,position").in_("tweet_id", tweet_ids).execute()
 
         # Group by tweet_id / poll_id in memory
         media_by_tweet: dict = {}
@@ -329,7 +372,7 @@ class TweetService:
                 "thread_id": row["thread_id"],
                 "thread_position": row["position"],
             }
-            for row in (thread_tweets_result.data or [])
+            for row in thread_rows
         }
 
         likes_count_by_tweet: dict[str, int] = {}
@@ -344,7 +387,7 @@ class TweetService:
 
         # Assemble responses
         tweet_responses = []
-        for tweet in tweets_result.data:
+        for tweet in expanded_tweets:
             tid = tweet["id"]
             media_responses = [MediaResponse(**m) for m in media_by_tweet.get(tid, [])]
 
