@@ -6,18 +6,24 @@ import { ScreenName, type FeedThread, type User } from '../types';
 
 interface ProfileScreenProps {
   currentUser: User;
+  profileUser?: User;
   userFeedItems: FeedThread[];
   headerRef: React.RefObject<HTMLElement | null>;
   onNavigate: (screen: ScreenName) => void;
   onDeleteFeedItem: (item: FeedThread) => Promise<void>;
+  onOpenUserProfile?: (user: User) => void;
+  showComposeCta?: boolean;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   currentUser,
+  profileUser = currentUser,
   userFeedItems,
   headerRef,
   onNavigate,
   onDeleteFeedItem,
+  onOpenUserProfile,
+  showComposeCta = true,
 }) => {
   const [threadTweets, setThreadTweets] = useState<FeedThread | null>(null);
   const isShowingThread = threadTweets !== null;
@@ -60,10 +66,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <div className="relative z-10">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-4 min-w-0">
-              <Avatar src={currentUser.avatar} alt={currentUser.name} size="lg" />
+              <Avatar src={profileUser.avatar} alt={profileUser.name} size="lg" />
               <div className="min-w-0">
-                <h2 className="text-xl font-bold text-app-text truncate">{currentUser.name}</h2>
-                <p className="text-app-muted text-sm truncate">@{currentUser.handle}</p>
+                <h2 className="text-xl font-bold text-app-text truncate">{profileUser.name}</h2>
+                <p className="text-app-muted text-sm truncate">@{profileUser.handle}</p>
                 <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-app-muted">
                   <CalendarDays size={13} />
                   <span>Joined recently</span>
@@ -96,12 +102,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => onNavigate(ScreenName.COMPOSE)}
-              className="inline-flex items-center gap-2 rounded-full bg-app-peach px-4 py-2 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
-            >
-              <PenSquare size={15} /> New post
-            </button>
+            {showComposeCta && (
+              <button
+                onClick={() => onNavigate(ScreenName.COMPOSE)}
+                className="inline-flex items-center gap-2 rounded-full bg-app-peach px-4 py-2 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
+              >
+                <PenSquare size={15} /> New post
+              </button>
+            )}
 
             {isShowingThread && (
               <button
@@ -134,18 +142,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               headerRef={headerRef}
               handleOpenThread={handleOpenThread}
               onDeleteItem={handleDeleteItem}
+              onOpenUserProfile={onOpenUserProfile}
             />
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-white/20 bg-white/[0.03] p-8 text-center">
             <p className="text-xl font-semibold text-app-text">No posts yet</p>
-            <p className="text-app-muted text-sm mt-1">Your threads and tweets will appear here once you publish.</p>
-            <button
-              onClick={() => onNavigate(ScreenName.COMPOSE)}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-app-peach px-4 py-2 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
-            >
-              <PenSquare size={15} /> Create your first post
-            </button>
+            <p className="text-app-muted text-sm mt-1">
+              {showComposeCta
+                ? 'Your threads and tweets will appear here once you publish.'
+                : `${profileUser.name} has not posted anything yet.`}
+            </p>
+            {showComposeCta && (
+              <button
+                onClick={() => onNavigate(ScreenName.COMPOSE)}
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-app-peach px-4 py-2 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
+              >
+                <PenSquare size={15} /> Create your first post
+              </button>
+            )}
           </div>
         )}
       </section>

@@ -67,9 +67,10 @@ interface FeedProps {
   headerRef: React.RefObject<HTMLElement | null>;
   handleOpenThread: (twts: FeedThread) => void;
   onDeleteItem: (item: FeedThread) => Promise<void>;
+  onOpenUserProfile?: (user: User) => void;
 }
 
-const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, headerRef, handleOpenThread, onDeleteItem }) => {
+const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, headerRef, handleOpenThread, onDeleteItem, onOpenUserProfile }) => {
   const tweetCount = isThreadOpen ? tweetItems[0].tweets.length : 2;
   const [selectedPollOptions, setSelectedPollOptions] = useState<Record<string, string>>({});
   const [pollOptionsByTweet, setPollOptionsByTweet] = useState<Record<string, FeedPollOption[]>>({});
@@ -554,8 +555,26 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                       {showAuthorMeta ? (
                         <div className="flex items-start justify-between gap-3 mb-1">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="font-bold text-app-text truncate">{tweet.author.name}</span>
-                            <span className="text-app-muted truncate">@{tweet.author.handle}</span>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onOpenUserProfile?.(tweet.author);
+                              }}
+                              className="font-bold text-app-text truncate hover:underline underline-offset-2"
+                            >
+                              {tweet.author.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onOpenUserProfile?.(tweet.author);
+                              }}
+                              className="text-app-muted truncate hover:text-app-text hover:underline underline-offset-2"
+                            >
+                              @{tweet.author.handle}
+                            </button>
                             <span className="text-app-muted text-sm whitespace-nowrap">· {tweet.time}</span>
                           </div>
                           {isOwnerItem && index === 0 && (

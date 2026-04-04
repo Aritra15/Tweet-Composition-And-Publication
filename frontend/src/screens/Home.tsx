@@ -12,6 +12,7 @@ interface HomeProps {
   publishedFeedItems: FeedThread[];
   fetchedFeedItems: FeedThread[];
   onDeleteFeedItem: (item: FeedThread) => Promise<void>;
+  onOpenUserProfile: (user: User) => void;
 }
 
 const MOCK_TWEETS: FeedThread[] = [
@@ -93,7 +94,7 @@ const MOCK_TWEETS: FeedThread[] = [
   },
 ];
 
-export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, headerRef, headerHeight, publishedFeedItems, fetchedFeedItems, onDeleteFeedItem }) => {
+export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, headerRef, headerHeight, publishedFeedItems, fetchedFeedItems, onDeleteFeedItem, onOpenUserProfile }) => {
   const [threadTweets, setThreadTweets] = useState<FeedThread | null>(null);
   const isShowingThread = threadTweets !== null;
 
@@ -220,6 +221,7 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, heade
           headerRef={headerRef}
           handleOpenThread={handleOpenThread}
           onDeleteItem={handleDeleteItem}
+          onOpenUserProfile={onOpenUserProfile}
         />
 
         {/* FAB */}

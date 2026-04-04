@@ -173,10 +173,14 @@ function App() {
   const [draftThread, setDraftThread] = useState<Thread | null>(null);
   const [publishedFeedItems, setPublishedFeedItems] = useState<FeedThread[]>([]);
   const [fetchedFeedItems, setFetchedFeedItems] = useState<FeedThread[]>([]);
+  const [publicProfileUser, setPublicProfileUser] = useState<User | null>(null);
+  const [publicProfileFeedItems, setPublicProfileFeedItems] = useState<FeedThread[]>([]);
+  const [publicProfileLoading, setPublicProfileLoading] = useState(false);
   const [tweetLoading, setTweetLoading] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const headerRef = useRef<HTMLElement | null>(null);
+  const publicProfileRequestIdRef = useRef(0);
   const [headerHeight, setHeaderHeight] = useState(0);
 
   useEffect(() => {
@@ -221,6 +225,9 @@ function App() {
     setCurrentUser(null);
     setPublishedFeedItems([]);
     setFetchedFeedItems([]);
+    setPublicProfileUser(null);
+    setPublicProfileFeedItems([]);
+    setPublicProfileLoading(false);
     setTweetLoading(true);
     setDraftThread(null);
     setCurrentScreen(ScreenName.HOME);
@@ -293,6 +300,56 @@ function App() {
     setFetchedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
   };
 
+  const handleOpenUserProfile = async (user: User) => {
+    if (!currentUser) {
+      return;
+    }
+
+    if (user.id === currentUser.id) {
+      publicProfileRequestIdRef.current += 1;
+      setPublicProfileUser(null);
+      setPublicProfileFeedItems([]);
+      setPublicProfileLoading(false);
+      navigate(ScreenName.PROFILE);
+      return;
+    }
+
+    const requestId = publicProfileRequestIdRef.current + 1;
+    publicProfileRequestIdRef.current = requestId;
+
+    setPublicProfileUser(user);
+    setPublicProfileFeedItems([]);
+    setPublicProfileLoading(true);
+    navigate(ScreenName.PUBLIC_PROFILE);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/tweets/user/${user.id}?limit=50&offset=0&viewer_user_id=${currentUser.id}`);
+      if (!response.ok) {
+        if (publicProfileRequestIdRef.current !== requestId) {
+          return;
+        }
+        setPublicProfileFeedItems([]);
+        return;
+      }
+
+      const tweets: ApiTweetResponse[] = await response.json();
+      if (publicProfileRequestIdRef.current !== requestId) {
+        return;
+      }
+      setPublicProfileFeedItems(mapApiTweetsToFeedThreads(tweets));
+    } catch {
+      if (publicProfileRequestIdRef.current !== requestId) {
+        return;
+      }
+      setPublicProfileFeedItems([]);
+    } finally {
+      if (publicProfileRequestIdRef.current !== requestId) {
+        return;
+      }
+      setPublicProfileLoading(false);
+    }
+  };
+
   // Not logged in → show auth screen
   if (!currentUser) {
     return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
@@ -310,6 +367,11 @@ function App() {
           <div className="flex flex-col items-center">
             <span className="font-semibold text-[18px] text-app-text">Profile</span>
             <span className="text-[12px] text-app-muted">@{currentUser.handle}</span>
+          </div>
+        ) : currentScreen === ScreenName.PUBLIC_PROFILE && publicProfileUser ? (
+          <div className="flex flex-col items-center">
+            <span className="font-semibold text-[18px] text-app-text">Profile</span>
+            <span className="text-[12px] text-app-muted">@{publicProfileUser.handle}</span>
           </div>
         ) : currentScreen === ScreenName.SETTINGS ? (
           <div className="flex flex-col items-center">
@@ -397,6 +459,7 @@ function App() {
                     publishedFeedItems={publishedFeedItems}
                     fetchedFeedItems={fetchedFeedItems}
                     onDeleteFeedItem={handleDeleteFeedItem}
+                    onOpenUserProfile={handleOpenUserProfile}
                   />
                 )}
 
@@ -407,7 +470,27 @@ function App() {
                     headerRef={headerRef}
                     userFeedItems={profileFeedItems}
                     onDeleteFeedItem={handleDeleteFeedItem}
+                    onOpenUserProfile={handleOpenUserProfile}
                   />
+                )}
+
+                {currentScreen === ScreenName.PUBLIC_PROFILE && publicProfileUser && (
+                  <>
+                    {publicProfileLoading ? (
+                      <div className="px-5 py-8 text-sm text-app-muted">Loading profile posts...</div>
+                    ) : (
+                      <ProfileScreen
+                        onNavigate={navigate}
+                        currentUser={currentUser}
+                        profileUser={publicProfileUser}
+                        headerRef={headerRef}
+                        userFeedItems={publicProfileFeedItems}
+                        onDeleteFeedItem={handleDeleteFeedItem}
+                        onOpenUserProfile={handleOpenUserProfile}
+                        showComposeCta={false}
+                      />
+                    )}
+                  </>
                 )}
 
                 {currentScreen === ScreenName.HELP && (

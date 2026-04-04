@@ -2,6 +2,7 @@ export const ScreenName = {
   AUTH: 'AUTH',
   HOME: 'HOME',
   PROFILE: 'PROFILE',
+  PUBLIC_PROFILE: 'PUBLIC_PROFILE',
   HELP: 'HELP',
   SETTINGS: 'SETTINGS',
   SEARCH: 'SEARCH',
