@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { HomeScreen } from './screens/Home';
 import { ProfileScreen } from './screens/Profile';
@@ -217,10 +217,33 @@ function App() {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [mainPanelLeft, setMainPanelLeft] = useState(0);
 
-  useEffect(() => {
-    if (headerRef.current) {
-      setHeaderHeight(headerRef.current.offsetHeight);
+  useLayoutEffect(() => {
+    const headerElement = headerRef.current;
+    if (!headerElement) {
+      return;
     }
+
+    const updateHeaderHeight = () => {
+      setHeaderHeight(Math.ceil(headerElement.getBoundingClientRect().height));
+    };
+
+    updateHeaderHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeaderHeight();
+    });
+
+    resizeObserver.observe(headerElement);
+
+    const fontReady = (document as Document & { fonts?: FontFaceSet }).fonts?.ready;
+    void fontReady?.then(updateHeaderHeight).catch(() => undefined);
+
+    window.addEventListener('resize', updateHeaderHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
   }, [currentUser]);
 
   useEffect(() => {
@@ -259,10 +282,10 @@ function App() {
     const fetchInitialTweets = async () => {
       const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=${FEED_PAGE_SIZE}&offset=0&viewer_user_id=${currentUser.id}`);
 
-        if (!response.ok) {
-          setTweetLoading(false);
-          return;
-        }
+      if (!response.ok) {
+        setTweetLoading(false);
+        return;
+      }
 
       const tweets: ApiTweetResponse[] = await response.json();
       setFetchedFeedItems(mapApiTweetsToFeedThreads(tweets));

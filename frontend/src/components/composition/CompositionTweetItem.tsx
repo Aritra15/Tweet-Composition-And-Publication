@@ -99,7 +99,7 @@ const CompositionTweetItem: React.FC<CompositionTweetItemProps> = ({
                     }}
                     onFocus={() => setActiveTweetIndex(index)}
                     placeholder={index === 0 ? "What's happening?" : "Add another tweet..."}
-                    className="w-full bg-transparent text-white text-lg placeholder-white/45 outline-none resize-none min-h-[88px] leading-6"
+                    className="w-full bg-transparent text-white text-lg placeholder-white/45 outline-none resize-none min-h-[88px] leading-6 px-4 py-3"
                 />
 
                 {tweet.media.length > 0 && (
