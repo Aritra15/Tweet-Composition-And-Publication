@@ -10,3 +10,4 @@ api_router.include_router(tweets.router, prefix="/tweets", tags=["tweets"])
 api_router.include_router(media.router, prefix="/media", tags=["media"])
 api_router.include_router(polls.router, prefix="/polls", tags=["polls"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
+
