@@ -174,6 +174,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
 
   const publishThreadTransactional = async (): Promise<Thread> => {
     const createdTweets: Array<{ id: string; draft: TweetDraft }> = [];
+    let persistedThreadId: string | undefined;
 
     try {
       for (const tweet of publishableTweets) {
@@ -181,7 +182,26 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
         createdTweets.push({ id: createdTweetId, draft: tweet });
       }
 
+      if (createdTweets.length > 1) {
+        const linkResponse = await fetch(`${API_BASE_URL}/api/v1/tweets/thread/link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUser.id,
+            tweet_ids: createdTweets.map((tweet) => tweet.id),
+          }),
+        });
+
+        if (!linkResponse.ok) {
+          throw new Error(await parseApiError(linkResponse, 'Failed to persist thread links'));
+        }
+
+        const linkedThread: { thread_id: string } = await linkResponse.json();
+        persistedThreadId = linkedThread.thread_id;
+      }
+
       return {
+        id: persistedThreadId,
         tweets: createdTweets.map(({ id, draft }) => ({
           ...draft,
           id,

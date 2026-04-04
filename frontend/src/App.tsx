@@ -6,7 +6,7 @@ import { HelpSupportScreen } from './screens/HelpSupport';
 import { ComposeScreen } from './screens/Compose';
 import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
-import { ScreenName, type FeedThread, type Thread, type User } from './types';
+import { ScreenName, type ApiTweetResponse, type FeedThread, type FeedTweet, type Thread, type User } from './types';
 import { Avatar } from './components/Shared';
 import { CalendarClock, Feather, Sparkles, TrendingUp } from 'lucide-react';
 import ProfileMenu from './components/ProfileMenu';
@@ -21,7 +21,7 @@ const AUTH_USER_KEY  = 'tweet_auth_user';
 
 const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
   return {
-    id: thread.tweets[0].id, // Use the first tweet's ID as the thread ID for simplicity
+    id: thread.id ?? thread.tweets[0].id,
     isThread: thread.tweets.length > 1,
     tweets: thread.tweets.map((tweet) => ({
       id: tweet.id,
@@ -39,38 +39,19 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
       media: tweet.media.map((m) => ({url: m.url, type: m.type})),
       poll: tweet.poll
         ? {
+          id: undefined,
           question: tweet.poll.question,
           options: tweet.poll.options.map((option) => ({
             id: option.id,
             text: option.text,
             votesCount: 0,
           })),
+          votedOptionId: null,
         }
         : undefined,
     })),
   };
 };
-
-interface ApiTweetResponse {
-  id: string;
-  user_id: string;
-  username: string;
-  user_handle: string;
-  profile_picture_url: string | null;
-  text: string;
-  created_at: string;
-  likes_count?: number;
-  comments_count?: number;
-  media?: Array<{ url: string, type: 'image' | 'video' }>;
-  poll?: {
-    question: string;
-    options: Array<{
-      id: string;
-      text: string;
-      votes_count: number;
-    }>;
-  } | null;
-}
 
 const formatTweetAge = (createdAt: string): string => {
   const createdTime = new Date(createdAt).getTime();
@@ -94,38 +75,75 @@ const formatTweetAge = (createdAt: string): string => {
   return `${diffInDays}d`;
 };
 
-const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
-  return {
-    id: tweet.id,
-    isThread: false,
-    tweets: [
-      {
-        id: tweet.id,
-        author: {
-          id: tweet.user_id,
-          name: tweet.username, // In real scenario, we would need to fetch user details separately. For now, we'll just use the ID as the name.
-          handle: `${tweet.user_handle}`,
-          avatar: tweet.profile_picture_url !== null ? tweet.profile_picture_url : `https://picsum.photos/seed/${tweet.user_id}/150/150`,
-        },
-        text: tweet.text,
-        time: formatTweetAge(tweet.created_at),
-        likes: tweet.likes_count ?? 0,
-        replies: tweet.comments_count ?? 0,
-        reposts: 0,
-        media: (tweet.media ?? []).map((item) => ({url: item.url, type: item.type})),
-        poll: tweet.poll
-          ? {
-            question: tweet.poll.question,
-            options: tweet.poll.options.map((option) => ({
-              id: option.id,
-              text: option.text,
-              votesCount: option.votes_count,
-            })),
-          }
-          : undefined,
-      },
-    ],
+const mapApiTweetToFeedTweet = (tweet: ApiTweetResponse): FeedTweet => ({
+  id: tweet.id,
+  author: {
+    id: tweet.user_id,
+    name: tweet.username,
+    handle: `${tweet.user_handle}`,
+    avatar: tweet.profile_picture_url !== null ? tweet.profile_picture_url : `https://picsum.photos/seed/${tweet.user_id}/150/150`,
+  },
+  text: tweet.text,
+  time: formatTweetAge(tweet.created_at),
+  likes: tweet.likes_count ?? 0,
+  replies: tweet.comments_count ?? 0,
+  reposts: 0,
+  media: (tweet.media ?? []).map((item) => ({ url: item.url, type: item.type })),
+  poll: tweet.poll
+    ? {
+      id: tweet.poll.id,
+      question: tweet.poll.question,
+      options: tweet.poll.options.map((option) => ({
+        id: option.id,
+        text: option.text,
+        votesCount: option.votes_count,
+      })),
+      votedOptionId: tweet.poll.voted_option_id ?? null,
+    }
+    : undefined,
+});
+
+const mapApiTweetsToFeedThreads = (tweets: ApiTweetResponse[]): FeedThread[] => {
+  type GroupBucket = {
+    id: string;
+    order: number;
+    tweets: Array<{ raw: ApiTweetResponse; mapped: FeedTweet }>;
   };
+
+  const groups = new Map<string, GroupBucket>();
+
+  tweets.forEach((tweet, index) => {
+    const groupId = tweet.thread_id ?? tweet.id;
+    const existing = groups.get(groupId);
+    const mappedTweet = mapApiTweetToFeedTweet(tweet);
+
+    if (!existing) {
+      groups.set(groupId, {
+        id: groupId,
+        order: index,
+        tweets: [{ raw: tweet, mapped: mappedTweet }],
+      });
+      return;
+    }
+
+    existing.tweets.push({ raw: tweet, mapped: mappedTweet });
+  });
+
+  return Array.from(groups.values())
+    .sort((a, b) => a.order - b.order)
+    .map((group) => {
+      const sortedTweets = [...group.tweets].sort((a, b) => {
+        const posA = a.raw.thread_position ?? Number.MAX_SAFE_INTEGER;
+        const posB = b.raw.thread_position ?? Number.MAX_SAFE_INTEGER;
+        return posA - posB;
+      });
+
+      return {
+        id: group.id,
+        isThread: sortedTweets.length > 1,
+        tweets: sortedTweets.map((tweetItem) => tweetItem.mapped),
+      };
+    });
 };
 
 
@@ -168,7 +186,7 @@ function App() {
     if (!currentUser) return;
 
     const fetchInitialTweets = async () => {
-      const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=15&offset=0`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=15&offset=0&viewer_user_id=${currentUser.id}`);
 
       if (!response.ok) {
         setTweetLoading(false);
@@ -176,7 +194,7 @@ function App() {
       }
 
       const tweets: ApiTweetResponse[] = await response.json();
-      setFetchedFeedItems(tweets.map(mapApiTweetToFeedThread));
+      setFetchedFeedItems(mapApiTweetsToFeedThreads(tweets));
       setTweetLoading(false);
     };
 
@@ -231,7 +249,21 @@ function App() {
   };
 
   const handleDeleteFeedItem = async (item: FeedThread) => {
+    if (!currentUser) {
+      return;
+    }
+
     if (item.isThread) {
+      const threadResponse = await fetch(`${API_BASE_URL}/api/v1/tweets/thread/${item.id}?user_id=${currentUser.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!threadResponse.ok) {
+        const detail = await threadResponse.json().catch(() => ({}));
+        const message = typeof detail?.detail === 'string' ? detail.detail : 'Failed to delete thread';
+        throw new Error(message);
+      }
+
       setPublishedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
       setFetchedFeedItems((prev) => prev.filter((feedItem) => feedItem.id !== item.id));
       return;

@@ -46,6 +46,7 @@ export interface TweetDraft {
 }
 
 export interface Thread {
+  id?: string;
   tweets: TweetDraft[];
 }
 
@@ -73,8 +74,10 @@ export interface FeedPollOption {
 }
 
 export interface FeedPoll {
+  id?: string;
   question: string;
   options: FeedPollOption[];
+  votedOptionId?: string | null;
 }
 
 export interface FeedThread {
@@ -108,13 +111,17 @@ export interface ApiTweetResponse {
   created_at: string;
   likes_count?: number;
   comments_count?: number;
+  thread_id?: string | null;
+  thread_position?: number | null;
   media?: Array<{ url: string, type: 'image' | 'video' }>;
   poll?: {
+    id: string;
     question: string;
     options: Array<{
       id: string;
       text: string;
       votes_count: number;
     }>;
+    voted_option_id?: string | null;
   } | null;
 }
