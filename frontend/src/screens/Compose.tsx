@@ -50,11 +50,31 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
 
     // Focus management
     const mediaInputRef = useRef<HTMLInputElement | null>(null);
-    const mediaActionRef = useRef<HTMLDivElement | null>(null);
-    const emojiActionRef = useRef<HTMLDivElement | null>(null);
-    const pollActionRef = useRef<HTMLDivElement | null>(null);
-    const aiActionRef = useRef<HTMLDivElement | null>(null);
-    const audienceActionRef = useRef<HTMLButtonElement | null>(null);
+    const mediaActionRef = useRef<HTMLDivElement>(null);
+    const emojiActionRef = useRef<HTMLDivElement>(null);
+    const pollActionRef = useRef<HTMLDivElement>(null);
+    const aiActionRef = useRef<HTMLDivElement>(null);
+    const audienceActionRef = useRef<HTMLButtonElement>(null);
+
+    const setMediaActionRef = (element: HTMLDivElement | null) => {
+        mediaActionRef.current = element;
+    };
+
+    const setEmojiActionRef = (element: HTMLDivElement | null) => {
+        emojiActionRef.current = element;
+    };
+
+    const setPollActionRef = (element: HTMLDivElement | null) => {
+        pollActionRef.current = element;
+    };
+
+    const setAiActionRef = (element: HTMLDivElement | null) => {
+        aiActionRef.current = element;
+    };
+
+    const setAudienceActionRef = (element: HTMLButtonElement | null) => {
+        audienceActionRef.current = element;
+    };
     const [isMediaDragActive, setIsMediaDragActive] = useState(false);
     const [mediaToastMessage, setMediaToastMessage] = useState<string | null>(null);
 
@@ -403,11 +423,11 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
                 setActiveTweetIndex={setActiveTweetIndex}
                 setActiveSheet={setActiveSheet}
                 audience={audience}
-                mediaActionRef={mediaActionRef}
-                emojiActionRef={emojiActionRef}
-                pollActionRef={pollActionRef}
-                aiActionRef={aiActionRef}
-                audienceActionRef={audienceActionRef}
+                mediaActionRef={setMediaActionRef}
+                emojiActionRef={setEmojiActionRef}
+                pollActionRef={setPollActionRef}
+                aiActionRef={setAiActionRef}
+                audienceActionRef={setAudienceActionRef}
             />
 
             {/* --- Sheets --- */}

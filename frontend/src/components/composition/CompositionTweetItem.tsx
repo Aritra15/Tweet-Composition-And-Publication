@@ -10,11 +10,11 @@ interface CompositionTweetItemProps {
     currentUser: User;
     activeTweetIndex: number;
     audience: string;
-    mediaActionRef: React.RefObject<HTMLDivElement | null>;
-    emojiActionRef: React.RefObject<HTMLDivElement | null>;
-    pollActionRef: React.RefObject<HTMLDivElement | null>;
-    aiActionRef: React.RefObject<HTMLDivElement | null>;
-    audienceActionRef: React.RefObject<HTMLButtonElement | null>;
+    mediaActionRef: React.RefCallback<HTMLDivElement>;
+    emojiActionRef: React.RefCallback<HTMLDivElement>;
+    pollActionRef: React.RefCallback<HTMLDivElement>;
+    aiActionRef: React.RefCallback<HTMLDivElement>;
+    audienceActionRef: React.RefCallback<HTMLButtonElement>;
     setActiveTweetIndex: React.Dispatch<React.SetStateAction<number>>;
     setActiveSheet: React.Dispatch<React.SetStateAction<'media' | 'emoji' | 'poll' | 'ai' | 'audience' | null>>;
     setTextareaRef: (index: number, el: HTMLTextAreaElement | null) => void;
@@ -158,7 +158,7 @@ const CompositionTweetItem: React.FC<CompositionTweetItemProps> = ({
                 <div className="bottom-0 mt-3 border-t border-white/10 bg-[#101214]/95 backdrop-blur rounded-b-2xl px-1 py-2">
                     <div className="flex items-center justify-between">
                         <div className="flex gap-1 flex-1">
-                            <div ref={index === activeTweetIndex ? mediaActionRef : undefined}>
+                            <div ref={index === activeTweetIndex ? mediaActionRef : null}>
                                 <Button
                                     variant="icon"
                                     icon={Image}
@@ -169,7 +169,7 @@ const CompositionTweetItem: React.FC<CompositionTweetItemProps> = ({
                                     className="!text-white/65 hover:!text-white"
                                 />
                             </div>
-                            <div ref={index === activeTweetIndex ? emojiActionRef : undefined}>
+                            <div ref={index === activeTweetIndex ? emojiActionRef : null}>
                                 <Button
                                     variant="icon"
                                     icon={Smile}
@@ -180,7 +180,7 @@ const CompositionTweetItem: React.FC<CompositionTweetItemProps> = ({
                                     className="!text-white/65 hover:!text-white"
                                 />
                             </div>
-                            <div ref={index === activeTweetIndex ? pollActionRef : undefined}>
+                            <div ref={index === activeTweetIndex ? pollActionRef : null}>
                                 <Button
                                     variant="icon"
                                     icon={BarChart2}
@@ -191,7 +191,7 @@ const CompositionTweetItem: React.FC<CompositionTweetItemProps> = ({
                                     className="!text-white/65 hover:!text-white"
                                 />
                             </div>
-                            <div ref={index === activeTweetIndex ? aiActionRef : undefined}>
+                            <div ref={index === activeTweetIndex ? aiActionRef : null}>
                                 <Button
                                     variant="icon"
                                     icon={Sparkles}
@@ -214,7 +214,7 @@ const CompositionTweetItem: React.FC<CompositionTweetItemProps> = ({
 
                     <div className="mt-2 flex items-center justify-between">
                         <button
-                            ref={index === activeTweetIndex ? audienceActionRef : undefined}
+                            ref={index === activeTweetIndex ? audienceActionRef : null}
                             onClick={() => {
                                 setActiveTweetIndex(index);
                                 setActiveSheet("audience");
