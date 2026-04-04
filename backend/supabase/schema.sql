@@ -24,25 +24,25 @@ create table if not exists tweets (
 
 -- -- THREADS TABLE
 -- -- A thread is an ordered collection of tweets created by a user.
--- create table if not exists threads (
---   id uuid primary key default gen_random_uuid(),
---   user_id uuid not null references users(id) on delete cascade,
---   created_at timestamp default now(),
---   updated_at timestamp default now(),
---   status varchar(20) not null default 'published' check (status in ('draft', 'published', 'archived'))
--- );
+create table if not exists threads (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  created_at timestamp default now(),
+  updated_at timestamp default now(),
+  status varchar(20) not null default 'published' check (status in ('draft', 'published', 'archived'))
+);
 
 -- -- THREAD_TWEETS TABLE
 -- -- Maintains tweet ordering inside a thread.
--- create table if not exists thread_tweets (
---   thread_id uuid not null references threads(id) on delete cascade,
---   tweet_id uuid not null references tweets(id) on delete cascade,
---   position integer not null check (position >= 1),
---   created_at timestamp default now(),
---   primary key (thread_id, position),
---   unique (tweet_id),
---   unique (thread_id, tweet_id)
--- );
+create table if not exists thread_tweets (
+  thread_id uuid not null references threads(id) on delete cascade,
+  tweet_id uuid not null references tweets(id) on delete cascade,
+  position integer not null check (position >= 1),
+  created_at timestamp default now(),
+  primary key (thread_id, position),
+  unique (tweet_id),
+  unique (thread_id, tweet_id)
+);
 
 -- POLLS TABLE
 -- A tweet can have at most one poll.

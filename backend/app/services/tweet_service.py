@@ -68,6 +68,8 @@ class TweetService:
                 profile_picture_url=user["profile_picture_url"],
                 text=tweet["text"],
                 created_at=tweet["created_at"],
+                likes_count=0,
+                comments_count=0,
             )
 
         except Exception as e:
@@ -153,6 +155,9 @@ class TweetService:
             media_responses = [MediaResponse(**m) for m in media_result.data] if media_result.data else []
             poll_response = self._get_tweet_poll(tweet_id)
 
+            likes_result = self.supabase.table("tweet_likes").select("user_id").eq("tweet_id", tweet_id).execute()
+            comments_result = self.supabase.table("tweet_comments").select("id").eq("tweet_id", tweet_id).is_("deleted_at", "null").execute()
+
             return TweetResponse(
                 id=tweet["id"],
                 user_id=tweet["user_id"],
@@ -161,6 +166,8 @@ class TweetService:
                 profile_picture_url=user["profile_picture_url"],
                 text=tweet["text"],
                 created_at=tweet["created_at"],
+                likes_count=len(likes_result.data or []),
+                comments_count=len(comments_result.data or []),
                 media=media_responses,
                 poll=poll_response,
             )
@@ -190,12 +197,16 @@ class TweetService:
                 media_result = self.supabase.table("media").select("*").eq("tweet_id", tweet["id"]).execute()
                 media_responses = [MediaResponse(**m) for m in media_result.data] if media_result.data else []
                 poll_response = self._get_tweet_poll(tweet["id"])
+                likes_result = self.supabase.table("tweet_likes").select("user_id").eq("tweet_id", tweet["id"]).execute()
+                comments_result = self.supabase.table("tweet_comments").select("id").eq("tweet_id", tweet["id"]).is_("deleted_at", "null").execute()
 
                 tweet_responses.append(TweetResponse(
                     id=tweet["id"],
                     user_id=tweet["user_id"],
                     text=tweet["text"],
                     created_at=tweet["created_at"],
+                    likes_count=len(likes_result.data or []),
+                    comments_count=len(comments_result.data or []),
                     media=media_responses,
                     poll=poll_response,
                 ))
@@ -226,6 +237,8 @@ class TweetService:
         # Bulk fetch media and polls — 3 calls total instead of 3N
         media_result = self.supabase.table("media").select("*").in_("tweet_id", tweet_ids).execute()
         polls_result = self.supabase.table("polls").select("*").in_("tweet_id", tweet_ids).execute()
+        likes_result = self.supabase.table("tweet_likes").select("tweet_id").in_("tweet_id", tweet_ids).execute()
+        comments_result = self.supabase.table("tweet_comments").select("tweet_id").in_("tweet_id", tweet_ids).is_("deleted_at", "null").execute()
 
         poll_ids = [p["id"] for p in polls_result.data] if polls_result.data else []
         poll_options_result = self.supabase.table("poll_options").select("*").in_("poll_id", poll_ids).execute() if poll_ids else None
@@ -242,6 +255,16 @@ class TweetService:
         polls_by_tweet: dict = {}
         for p in (polls_result.data or []):
             polls_by_tweet[p["tweet_id"]] = p
+
+        likes_count_by_tweet: dict[str, int] = {}
+        for like_row in (likes_result.data or []):
+            tid = like_row["tweet_id"]
+            likes_count_by_tweet[tid] = likes_count_by_tweet.get(tid, 0) + 1
+
+        comments_count_by_tweet: dict[str, int] = {}
+        for comment_row in (comments_result.data or []):
+            tid = comment_row["tweet_id"]
+            comments_count_by_tweet[tid] = comments_count_by_tweet.get(tid, 0) + 1
 
         # Assemble responses
         tweet_responses = []
@@ -272,6 +295,8 @@ class TweetService:
                 profile_picture_url=users_by_id.get(tweet["user_id"], {}).get("profile_picture_url"),
                 text=tweet["text"],
                 created_at=tweet["created_at"],
+                likes_count=likes_count_by_tweet.get(tid, 0),
+                comments_count=comments_count_by_tweet.get(tid, 0),
                 media=media_responses,
                 poll=poll_response,
             ))

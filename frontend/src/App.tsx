@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { HomeScreen } from './screens/Home';
+import { ProfileScreen } from './screens/Profile';
+import { HelpSupportScreen } from './screens/HelpSupport';
 import { ComposeScreen } from './screens/Compose';
 import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
 import { ScreenName, type FeedThread, type Thread, type User } from './types';
 import { Avatar } from './components/Shared';
-import { Feather } from 'lucide-react';
+import { CalendarClock, Feather, Sparkles, TrendingUp } from 'lucide-react';
 import ProfileMenu from './components/ProfileMenu';
 import './App.css';
 
@@ -20,7 +22,7 @@ const AUTH_USER_KEY  = 'tweet_auth_user';
 const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
   return {
     id: thread.tweets[0].id, // Use the first tweet's ID as the thread ID for simplicity
-    isThread: false,
+    isThread: thread.tweets.length > 1,
     tweets: thread.tweets.map((tweet) => ({
       id: tweet.id,
       author: {
@@ -57,6 +59,8 @@ interface ApiTweetResponse {
   profile_picture_url: string | null;
   text: string;
   created_at: string;
+  likes_count?: number;
+  comments_count?: number;
   media?: Array<{ url: string, type: 'image' | 'video' }>;
   poll?: {
     question: string;
@@ -105,8 +109,8 @@ const mapApiTweetToFeedThread = (tweet: ApiTweetResponse): FeedThread => {
         },
         text: tweet.text,
         time: formatTweetAge(tweet.created_at),
-        likes: 0,
-        replies: 0,
+        likes: tweet.likes_count ?? 0,
+        replies: tweet.comments_count ?? 0,
         reposts: 0,
         media: (tweet.media ?? []).map((item) => ({url: item.url, type: item.type})),
         poll: tweet.poll
@@ -198,16 +202,19 @@ function App() {
   };
 
   const navigate = (screen: ScreenName) => setCurrentScreen(screen);
+  const profileFeedItems = currentUser
+    ? [...publishedFeedItems, ...fetchedFeedItems]
+      .filter((item) => item.tweets[0]?.author.id === currentUser.id)
+    : [];
 
   const handleComposeNext = (thread: Thread) => {
     setDraftThread(thread);
     navigate(ScreenName.PUBLISH);
   };
 
-  const handlePublishComplete = (draftTweetId: string) => {
+  const handlePublishComplete = (publishedThread: Thread) => {
     if (draftThread && currentUser) {
-      const newDraftThread = { ...draftThread, tweets: draftThread.tweets.map((t) => ({ ...t, id: draftTweetId})) };
-      const newFeedItem = mapThreadToFeedItem(newDraftThread, currentUser);
+      const newFeedItem = mapThreadToFeedItem(publishedThread, currentUser);
       setPublishedFeedItems((prev) => [newFeedItem, ...prev]);
     }
     setDraftThread(null);
@@ -260,15 +267,27 @@ function App() {
           <Feather className="text-app-bg w-7 h-7" />
         </div>
 
-        <div className="flex gap-6">
-          <button aria-label="For You" className="font-semibold text-[18px] py-2 relative text-app-text">
-            For You
-            <div className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-app-peach" />
-          </button>
-          <button aria-label="Following" className="font-semibold text-[18px] py-2 relative text-app-muted">
-            Following
-          </button>
-        </div>
+        {currentScreen === ScreenName.PROFILE ? (
+          <div className="flex flex-col items-center">
+            <span className="font-semibold text-[18px] text-app-text">Profile</span>
+            <span className="text-[12px] text-app-muted">@{currentUser.handle}</span>
+          </div>
+        ) : currentScreen === ScreenName.HELP ? (
+          <div className="flex flex-col items-center">
+            <span className="font-semibold text-[18px] text-app-text">Help & Support</span>
+            <span className="text-[12px] text-app-muted">Get assistance quickly</span>
+          </div>
+        ) : (
+          <div className="flex gap-6">
+            <button aria-label="For You" className="font-semibold text-[18px] py-2 relative text-app-text">
+              For You
+              <div className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-app-peach" />
+            </button>
+            <button aria-label="Following" className="font-semibold text-[18px] py-2 relative text-app-muted">
+              Following
+            </button>
+          </div>
+        )}
 
         {/* Avatar — opens profile menu */}
         <button aria-label="Open profile menu" onClick={() => setProfileMenuOpen((o) => !o)} className="rounded-full">
@@ -283,6 +302,14 @@ function App() {
             user={currentUser}
             onClose={() => setProfileMenuOpen(false)}
             onLogout={handleLogout}
+            onOpenProfile={() => {
+              setProfileMenuOpen(false);
+              navigate(ScreenName.PROFILE);
+            }}
+            onOpenHelpSupport={() => {
+              setProfileMenuOpen(false);
+              navigate(ScreenName.HELP);
+            }}
           />
         )}
       </AnimatePresence>
@@ -290,17 +317,78 @@ function App() {
       {!tweetLoading && (
         <div
           style={{ paddingTop: headerHeight }}
-          className="max-w-[45%] mx-auto min-h-screen bg-app-bg text-app-text overflow-hidden relative shadow-2xl"
+          className="relative min-h-screen text-app-text"
         >
-          <HomeScreen
-            onNavigate={navigate}
-            currentUser={currentUser}
-            headerRef={headerRef}
-            headerHeight={headerHeight}
-            publishedFeedItems={publishedFeedItems}
-            fetchedFeedItems={fetchedFeedItems}
-            onDeleteFeedItem={handleDeleteFeedItem}
-          />
+          <div className="mx-auto w-full max-w-[1320px] px-3 sm:px-4 lg:px-6 pb-6">
+            <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,760px)_260px] gap-5 xl:gap-6 items-start">
+              <aside className="hidden xl:flex flex-col gap-4 sticky top-4">
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <div className="inline-flex items-center gap-2 text-app-peach text-xs font-semibold uppercase tracking-[0.12em]">
+                    <Sparkles size={14} /> Workspace
+                  </div>
+                  <p className="mt-2 text-sm text-white/90 leading-relaxed">
+                    Draft thread ideas quickly, then publish as a clean sequence to keep your timeline cohesive.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <div className="inline-flex items-center gap-2 text-cyan-300 text-xs font-semibold uppercase tracking-[0.12em]">
+                    <CalendarClock size={14} /> Daily Goal
+                  </div>
+                  <p className="mt-2 text-sm text-white/75">Post 1 insight and 1 media update today.</p>
+                </div>
+              </aside>
+
+              <div className="min-h-screen rounded-2xl border border-white/10 bg-app-bg shadow-[0_26px_80px_rgba(0,0,0,0.52)] overflow-hidden relative">
+                {currentScreen === ScreenName.HOME && (
+                  <HomeScreen
+                    onNavigate={navigate}
+                    currentUser={currentUser}
+                    headerRef={headerRef}
+                    headerHeight={headerHeight}
+                    publishedFeedItems={publishedFeedItems}
+                    fetchedFeedItems={fetchedFeedItems}
+                    onDeleteFeedItem={handleDeleteFeedItem}
+                  />
+                )}
+
+                {currentScreen === ScreenName.PROFILE && (
+                  <ProfileScreen
+                    onNavigate={navigate}
+                    currentUser={currentUser}
+                    headerRef={headerRef}
+                    userFeedItems={profileFeedItems}
+                    onDeleteFeedItem={handleDeleteFeedItem}
+                  />
+                )}
+
+                {currentScreen === ScreenName.HELP && (
+                  <HelpSupportScreen
+                    onNavigate={navigate}
+                    currentUser={currentUser}
+                  />
+                )}
+              </div>
+
+              <aside className="hidden xl:flex flex-col gap-4 sticky top-4">
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <div className="inline-flex items-center gap-2 text-lime-300 text-xs font-semibold uppercase tracking-[0.12em]">
+                    <TrendingUp size={14} /> Trending
+                  </div>
+                  <ul className="mt-3 space-y-2 text-sm text-white/80">
+                    <li>#ProductBuildInPublic</li>
+                    <li>#UIEngineering</li>
+                    <li>#FrontendWeekly</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-muted">Tip</p>
+                  <p className="mt-2 text-sm text-white/75">Use threaded posts for progress logs instead of posting disconnected single tweets.</p>
+                </div>
+              </aside>
+            </div>
+          </div>
 
           <AnimatePresence>
             {(currentScreen === ScreenName.COMPOSE || currentScreen === ScreenName.PUBLISH) && (

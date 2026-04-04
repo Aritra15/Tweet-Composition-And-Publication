@@ -78,6 +78,8 @@ class TweetResponse(BaseModel):
     profile_picture_url: str | None
     text: str
     created_at: datetime
+    likes_count: int = 0
+    comments_count: int = 0
     media: list[MediaResponse] = []
     poll: PollResponse | None = None
 

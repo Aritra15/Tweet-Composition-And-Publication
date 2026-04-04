@@ -9,7 +9,7 @@ interface PublishProps {
   thread: Thread | null;
   currentUser: User;
   onBack: () => void;
-  onPublish: (draftTweetId: string) => void;
+  onPublish: (publishedThread: Thread) => void;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
@@ -20,6 +20,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
   const [isPublishing, setIsPublishing] = useState(false);
 
   const tweets = thread?.tweets ?? [];
+  const isThreadDraft = tweets.length > 1;
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToastMessage(message);
@@ -169,6 +170,38 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
   //   }
   // };
 
+  const publishThreadTransactional = async (): Promise<Thread> => {
+    const createdTweets: Array<{ id: string; draft: TweetDraft }> = [];
+
+    try {
+      for (const tweet of tweets) {
+        const createdTweetId = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
+        createdTweets.push({ id: createdTweetId, draft: tweet });
+      }
+
+      return {
+        tweets: createdTweets.map(({ id, draft }) => ({
+          ...draft,
+          id,
+        })),
+      };
+    } catch (error) {
+      if (createdTweets.length > 0) {
+        const rollbackResults = await Promise.allSettled(
+          createdTweets.map(({ id }) => rollbackTweet(id)),
+        );
+        const rollbackFailed = rollbackResults.some((result) => result.status === 'rejected');
+
+        if (rollbackFailed) {
+          const message = error instanceof Error ? error.message : 'Publishing failed';
+          throw new Error(`${message}. Some tweets were published and rollback failed.`);
+        }
+      }
+
+      throw error;
+    }
+  };
+
   const handleFinish = async () => {
     if (!tweets.length || isPublishing) {
       return;
@@ -183,19 +216,12 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
     setIsPublishing(true);
 
     try {
-      let publishedTweetId: string = "";
-      if (tweets.length > 1) {
-        // await publishThread();
-        return;
-      } else {
-        const tweet = tweets[0];
-        publishedTweetId = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
-      }
+      const publishedThread = await publishThreadTransactional();
 
       showToast('Published successfully!', 'success');
 
       window.setTimeout(() => {
-        onPublish(publishedTweetId);
+        onPublish(publishedThread);
       }, 900);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Publishing failed', 'error');
@@ -231,18 +257,37 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
               </div>
 
               <div className="w-full space-y-3">
-                {tweets.map((tweet: TweetDraft) => (
+                {isThreadDraft && (
+                  <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-peach/80">
+                    Thread preview · {tweets.length} posts
+                  </div>
+                )}
+
+                {tweets.map((tweet: TweetDraft, index: number) => {
+                  const showAuthorMeta = !isThreadDraft || index === 0;
+
+                  return (
                   <article key={tweet.id} className={"p-4 relative border-y border-white/10"}>
                     <div className="flex gap-3">
-                      <div className="shrink-0 z-10">
-                        <Avatar src={currentUser.avatar} alt={currentUser.name} />
+                      <div className="shrink-0 z-10 w-10 flex justify-center">
+                        {showAuthorMeta ? (
+                          <Avatar src={currentUser.avatar} alt={currentUser.name} />
+                        ) : (
+                          <span className="mt-3 h-2.5 w-2.5 rounded-full bg-app-peach ring-2 ring-[#101214]" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="font-bold text-app-text truncate">{currentUser.name}</span>
-                          <span className="text-app-muted truncate">@{currentUser.handle}</span>
-                          <span className="text-app-muted text-sm">· 0h</span>
-                        </div>
+                        {showAuthorMeta ? (
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="font-bold text-app-text truncate">{currentUser.name}</span>
+                            <span className="text-app-muted truncate">@{currentUser.handle}</span>
+                            <span className="text-app-muted text-sm">· 0h</span>
+                          </div>
+                        ) : (
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-app-muted">
+                            Post {index + 1} of {tweets.length}
+                          </div>
+                        )}
                         <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">
                           {tweet.text}
                         </p>
@@ -305,7 +350,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                       </div>
                     </div>
                   </article>
-                ))}
+                )})}
               </div>
             </div>
           </div>
