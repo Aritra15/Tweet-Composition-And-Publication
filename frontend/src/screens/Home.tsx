@@ -105,6 +105,7 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, heade
   const [showFAB, setShowFAB] = useState(false);
 
   const [feedPositionX, setFeedPositionX] = useState(0);
+  const [feedRightX, setFeedRightX] = useState(0);
 
   useEffect(() => {
     const observedElement = inputRef.current;
@@ -138,6 +139,7 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, heade
       if (feedRef.current) {
         const rect = feedRef.current.getBoundingClientRect();
         setFeedPositionX(rect.left);
+        setFeedRightX(rect.right);
       }
     };
 
@@ -179,12 +181,12 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, heade
           </button>
         </div>}
 
-      <div ref={feedRef} className="rounded-xl mb-3 bg-[#242424] border border-white/10 relative">
+      <div ref={feedRef} className="mt-3 mb-5 rounded-2xl bg-[#1a1d21]/95 border border-white/10 shadow-[0_18px_45px_rgba(0,0,0,0.38)] relative overflow-hidden">
         {/* New Post Input */}
         {!isShowingThread &&
           <article
             ref={inputRef}
-            className="rounded-t-xl border-b border-white/10 p-4 group hover:bg-app-card transition-colors cursor-text"
+            className="rounded-t-2xl border-b border-white/10 p-4 group hover:bg-app-card transition-colors cursor-text"
           >
             <div className="flex items-center bg-[#242424] rounded-xl p-0 gap-3 group-hover:bg-app-card transition-colors">
               {/* Avatar */}
@@ -224,7 +226,8 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, heade
         {showFAB && <button
           aria-label="Close"
           onClick={() => onNavigate(ScreenName.COMPOSE)}
-          className="fixed bottom-8 right-8 w-14 h-14 bg-app-peach rounded-full flex items-center justify-center shadow-lg shadow-app-peach/20 hover:scale-110 active:scale-95 transition-transform z-30"
+          style={{ left: Math.max(16, feedRightX - 72) }}
+          className="fixed bottom-8 w-14 h-14 bg-app-peach rounded-full flex items-center justify-center shadow-lg shadow-app-peach/20 hover:scale-110 active:scale-95 transition-transform z-30"
         >
           <Plus className="text-app-bg w-8 h-8" />
         </button>}
