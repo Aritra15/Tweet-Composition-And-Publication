@@ -9,7 +9,7 @@ interface PublishProps {
   thread: Thread | null;
   currentUser: User;
   onBack: () => void;
-  onPublish: (draftTweetId: string) => void;
+  onPublish: (publishedThread: Thread) => void;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
@@ -183,19 +183,24 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
     setIsPublishing(true);
 
     try {
-      let publishedTweetId: string = "";
-      if (tweets.length > 1) {
-        // await publishThread();
-        return;
-      } else {
-        const tweet = tweets[0];
-        publishedTweetId = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
+      const createdTweets: Array<{ id: string; draft: TweetDraft }> = [];
+
+      for (const tweet of tweets) {
+        const createdTweetId = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
+        createdTweets.push({ id: createdTweetId, draft: tweet });
       }
+
+      const publishedThread: Thread = {
+        tweets: createdTweets.map(({ id, draft }) => ({
+          ...draft,
+          id,
+        })),
+      };
 
       showToast('Published successfully!', 'success');
 
       window.setTimeout(() => {
-        onPublish(publishedTweetId);
+        onPublish(publishedThread);
       }, 900);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Publishing failed', 'error');

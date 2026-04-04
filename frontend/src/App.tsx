@@ -22,7 +22,7 @@ const AUTH_USER_KEY  = 'tweet_auth_user';
 const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
   return {
     id: thread.tweets[0].id, // Use the first tweet's ID as the thread ID for simplicity
-    isThread: false,
+    isThread: thread.tweets.length > 1,
     tweets: thread.tweets.map((tweet) => ({
       id: tweet.id,
       author: {
@@ -206,10 +206,9 @@ function App() {
     navigate(ScreenName.PUBLISH);
   };
 
-  const handlePublishComplete = (draftTweetId: string) => {
+  const handlePublishComplete = (publishedThread: Thread) => {
     if (draftThread && currentUser) {
-      const newDraftThread = { ...draftThread, tweets: draftThread.tweets.map((t) => ({ ...t, id: draftTweetId})) };
-      const newFeedItem = mapThreadToFeedItem(newDraftThread, currentUser);
+      const newFeedItem = mapThreadToFeedItem(publishedThread, currentUser);
       setPublishedFeedItems((prev) => [newFeedItem, ...prev]);
     }
     setDraftThread(null);
