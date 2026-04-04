@@ -18,10 +18,9 @@ class OpenRouterService:
 Return ONLY the enhanced text without any explanations, comments, or additional formatting.""",
 
         "image_prompt_enhancement": """You are an expert AI image generation prompt engineer. Your task is to enhance image generation prompts by:
-- Adding relevant details about composition, lighting, and style
 - Clarifying ambiguous descriptions
 - Maintaining the core concept while making it more specific
-
+- Still keeping the prompt concise and focused on the main subject
     Return ONLY the enhanced prompt without any explanations or comments.""",
 
         "hashtag_suggestion": """You are a social media assistant.

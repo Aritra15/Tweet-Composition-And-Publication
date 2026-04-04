@@ -58,12 +58,16 @@ async def generate_image(request: ImageGenerateRequest) -> ImageGenerateResponse
     try:
         original_prompt = request.prompt
         prompt_to_use = await ai_service.enhance_image_prompt(request.prompt)
+        print(f"Original prompt: {original_prompt}")
+        print(f"Enhanced prompt: {prompt_to_use}")
+
 
         result = await ai_service.generate_image(prompt_to_use)
         result["original_prompt"] = original_prompt
 
         return ImageGenerateResponse(**result)
     except Exception as e:
+        print(f"AI IMAGE GEN ERROR Error generating image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating image: {str(e)}")
 
 
