@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { HomeScreen } from './screens/Home';
+import { ProfileScreen } from './screens/Profile';
 import { ComposeScreen } from './screens/Compose';
 import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
@@ -200,6 +201,10 @@ function App() {
   };
 
   const navigate = (screen: ScreenName) => setCurrentScreen(screen);
+  const profileFeedItems = currentUser
+    ? [...publishedFeedItems, ...fetchedFeedItems]
+      .filter((item) => item.tweets[0]?.author.id === currentUser.id)
+    : [];
 
   const handleComposeNext = (thread: Thread) => {
     setDraftThread(thread);
@@ -261,15 +266,22 @@ function App() {
           <Feather className="text-app-bg w-7 h-7" />
         </div>
 
-        <div className="flex gap-6">
-          <button aria-label="For You" className="font-semibold text-[18px] py-2 relative text-app-text">
-            For You
-            <div className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-app-peach" />
-          </button>
-          <button aria-label="Following" className="font-semibold text-[18px] py-2 relative text-app-muted">
-            Following
-          </button>
-        </div>
+        {currentScreen === ScreenName.PROFILE ? (
+          <div className="flex flex-col items-center">
+            <span className="font-semibold text-[18px] text-app-text">Profile</span>
+            <span className="text-[12px] text-app-muted">@{currentUser.handle}</span>
+          </div>
+        ) : (
+          <div className="flex gap-6">
+            <button aria-label="For You" className="font-semibold text-[18px] py-2 relative text-app-text">
+              For You
+              <div className="absolute bottom-0 left-0 right-0 h-1 rounded-full bg-app-peach" />
+            </button>
+            <button aria-label="Following" className="font-semibold text-[18px] py-2 relative text-app-muted">
+              Following
+            </button>
+          </div>
+        )}
 
         {/* Avatar — opens profile menu */}
         <button aria-label="Open profile menu" onClick={() => setProfileMenuOpen((o) => !o)} className="rounded-full">
@@ -297,15 +309,27 @@ function App() {
           style={{ paddingTop: headerHeight }}
           className="max-w-[45%] mx-auto min-h-screen bg-app-bg text-app-text overflow-hidden relative shadow-2xl"
         >
-          <HomeScreen
-            onNavigate={navigate}
-            currentUser={currentUser}
-            headerRef={headerRef}
-            headerHeight={headerHeight}
-            publishedFeedItems={publishedFeedItems}
-            fetchedFeedItems={fetchedFeedItems}
-            onDeleteFeedItem={handleDeleteFeedItem}
-          />
+          {currentScreen !== ScreenName.PROFILE && (
+            <HomeScreen
+              onNavigate={navigate}
+              currentUser={currentUser}
+              headerRef={headerRef}
+              headerHeight={headerHeight}
+              publishedFeedItems={publishedFeedItems}
+              fetchedFeedItems={fetchedFeedItems}
+              onDeleteFeedItem={handleDeleteFeedItem}
+            />
+          )}
+
+          {currentScreen === ScreenName.PROFILE && (
+            <ProfileScreen
+              onNavigate={navigate}
+              currentUser={currentUser}
+              headerRef={headerRef}
+              userFeedItems={profileFeedItems}
+              onDeleteFeedItem={handleDeleteFeedItem}
+            />
+          )}
 
           <AnimatePresence>
             {(currentScreen === ScreenName.COMPOSE || currentScreen === ScreenName.PUBLISH) && (
