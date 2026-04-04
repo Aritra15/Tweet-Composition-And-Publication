@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { HomeScreen } from './screens/Home';
 import { ProfileScreen } from './screens/Profile';
+import { HelpSupportScreen } from './screens/HelpSupport';
 import { ComposeScreen } from './screens/Compose';
 import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
@@ -271,6 +272,11 @@ function App() {
             <span className="font-semibold text-[18px] text-app-text">Profile</span>
             <span className="text-[12px] text-app-muted">@{currentUser.handle}</span>
           </div>
+        ) : currentScreen === ScreenName.HELP ? (
+          <div className="flex flex-col items-center">
+            <span className="font-semibold text-[18px] text-app-text">Help & Support</span>
+            <span className="text-[12px] text-app-muted">Get assistance quickly</span>
+          </div>
         ) : (
           <div className="flex gap-6">
             <button aria-label="For You" className="font-semibold text-[18px] py-2 relative text-app-text">
@@ -299,6 +305,10 @@ function App() {
             onOpenProfile={() => {
               setProfileMenuOpen(false);
               navigate(ScreenName.PROFILE);
+            }}
+            onOpenHelpSupport={() => {
+              setProfileMenuOpen(false);
+              navigate(ScreenName.HELP);
             }}
           />
         )}
@@ -330,7 +340,7 @@ function App() {
               </aside>
 
               <div className="min-h-screen rounded-2xl border border-white/10 bg-app-bg shadow-[0_26px_80px_rgba(0,0,0,0.52)] overflow-hidden relative">
-                {currentScreen !== ScreenName.PROFILE && (
+                {currentScreen === ScreenName.HOME && (
                   <HomeScreen
                     onNavigate={navigate}
                     currentUser={currentUser}
@@ -349,6 +359,13 @@ function App() {
                     headerRef={headerRef}
                     userFeedItems={profileFeedItems}
                     onDeleteFeedItem={handleDeleteFeedItem}
+                  />
+                )}
+
+                {currentScreen === ScreenName.HELP && (
+                  <HelpSupportScreen
+                    onNavigate={navigate}
+                    currentUser={currentUser}
                   />
                 )}
               </div>
