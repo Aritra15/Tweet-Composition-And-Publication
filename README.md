@@ -13,6 +13,7 @@ This project implements the Tweet Composition and Publication module.
 
 ```
 .
+├── docker-compose.yml                   # Starts both services with one command
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
@@ -34,6 +35,8 @@ This project implements the Tweet Composition and Publication module.
 │   │   └── types.ts                     # Shared TypeScript types and interfaces
 │   ├── index.html
 │   ├── netlify.toml                     # Netlify build and deploy config
+│   ├── nginx.conf                       # nginx config for Docker serving
+│   ├── Dockerfile                       # Docker image for the frontend
 │   ├── vite.config.ts
 │   └── package.json
 │
@@ -71,8 +74,34 @@ This project implements the Tweet Composition and Publication module.
     ├── tests/
     │   └── test_health.py
     ├── requirements.txt
+    ├── Dockerfile                       # Docker image for the backend
     └── .env.example                     # Template for required environment variables
 ```
+
+## Run with Docker (recommended)
+
+Runs both services with a single command. Make sure Docker is installed and running.
+
+```bash
+cd Tweet-Composition-And-Publication
+docker compose up --build
+```
+
+| Service  | URL                        |
+|----------|----------------------------|
+| Frontend | http://localhost:5173      |
+| Backend  | http://localhost:8000      |
+| API docs | http://localhost:8000/docs |
+
+> **Prerequisite:** `backend/.env` must exist with your secrets filled in (copy from `backend/.env.example`). The file is bind-mounted at runtime and never baked into the image.
+
+To stop:
+
+```bash
+docker compose down
+```
+
+---
 
 ## Run Frontend
 
