@@ -36,17 +36,18 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
       likes: 0,
       replies: 0,
       reposts: 0,
+      likedByMe: false,
       media: tweet.media.map((m) => ({url: m.url, type: m.type})),
       poll: tweet.poll
         ? {
-          id: undefined,
+          id: tweet.poll.id,
           question: tweet.poll.question,
           options: tweet.poll.options.map((option) => ({
             id: option.id,
             text: option.text,
             votesCount: 0,
           })),
-          votedOptionId: null,
+          votedOptionId: tweet.poll.votedOptionId ?? null,
         }
         : undefined,
     })),
@@ -88,6 +89,7 @@ const mapApiTweetToFeedTweet = (tweet: ApiTweetResponse): FeedTweet => ({
   likes: tweet.likes_count ?? 0,
   replies: tweet.comments_count ?? 0,
   reposts: 0,
+  likedByMe: tweet.liked_by_user ?? false,
   media: (tweet.media ?? []).map((item) => ({ url: item.url, type: item.type })),
   poll: tweet.poll
     ? {

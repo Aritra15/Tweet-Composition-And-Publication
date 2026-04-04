@@ -34,8 +34,10 @@ export interface PollOption {
 }
 
 export interface Poll {
+  id?: string;
   question: string;
   options: PollOption[];
+  votedOptionId?: string | null;
 }
 
 export interface TweetDraft {
@@ -63,6 +65,7 @@ export interface FeedTweet {
   likes: number;
   replies: number;
   reposts: number;
+  likedByMe?: boolean;
   media: FeedMedia[];
   poll?: FeedPoll;
 }
@@ -111,6 +114,7 @@ export interface ApiTweetResponse {
   created_at: string;
   likes_count?: number;
   comments_count?: number;
+  liked_by_user?: boolean;
   thread_id?: string | null;
   thread_position?: number | null;
   media?: Array<{ url: string, type: 'image' | 'video' }>;

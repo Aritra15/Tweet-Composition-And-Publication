@@ -64,6 +64,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
       : undefined;
 
     let createdTweetId: string | null = null;
+    let persistedPoll: Poll | undefined;
 
     try {
       const tweetResponse = await fetch(`${API_BASE_URL}/api/v1/tweets`, {
@@ -109,6 +110,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
         }
 
         const createdPoll: { id: string } = await pollResponse.json();
+        const createdOptions: Array<{ id: string; text: string }> = [];
 
         for (const option of normalizedPoll.options) {
           const optionResponse = await fetch(`${API_BASE_URL}/api/v1/polls/${createdPoll.id}/options`, {
@@ -120,10 +122,26 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
           if (!optionResponse.ok) {
             throw new Error(await parseApiError(optionResponse, 'Failed to create poll option'));
           }
+
+          const createdOption: { id: string; text: string } = await optionResponse.json();
+          createdOptions.push({
+            id: createdOption.id,
+            text: createdOption.text,
+          });
         }
+
+        persistedPoll = {
+          id: createdPoll.id,
+          question: normalizedPoll.question,
+          options: createdOptions,
+          votedOptionId: null,
+        };
       }
 
-      return createdTweet.id;
+      return {
+        tweetId: createdTweet.id,
+        poll: persistedPoll,
+      };
     } catch (error) {
       if (createdTweetId) {
         try {
@@ -173,13 +191,17 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
   // };
 
   const publishThreadTransactional = async (): Promise<Thread> => {
-    const createdTweets: Array<{ id: string; draft: TweetDraft }> = [];
+    const createdTweets: Array<{ id: string; draft: TweetDraft; poll?: Poll }> = [];
     let persistedThreadId: string | undefined;
 
     try {
       for (const tweet of publishableTweets) {
-        const createdTweetId = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
-        createdTweets.push({ id: createdTweetId, draft: tweet });
+        const createdTweet = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
+        createdTweets.push({
+          id: createdTweet.tweetId,
+          draft: tweet,
+          poll: createdTweet.poll,
+        });
       }
 
       if (createdTweets.length > 1) {
@@ -202,9 +224,10 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
 
       return {
         id: persistedThreadId,
-        tweets: createdTweets.map(({ id, draft }) => ({
+        tweets: createdTweets.map(({ id, draft, poll }) => ({
           ...draft,
           id,
+          poll: poll ?? draft.poll,
         })),
       };
     } catch (error) {
