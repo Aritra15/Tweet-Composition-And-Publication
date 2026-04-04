@@ -10,10 +10,7 @@ export const ScreenName = {
 } as const;
 
 
-
-
 export type ScreenName = typeof ScreenName[keyof typeof ScreenName];
-
 
 export interface User {
   id: string;
