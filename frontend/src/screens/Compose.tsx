@@ -50,11 +50,11 @@ export const ComposeScreen: React.FC<ComposeProps> = ({ onBack, onNext, currentU
 
     // Focus management
     const mediaInputRef = useRef<HTMLInputElement | null>(null);
-    const mediaActionRef = useRef<HTMLDivElement>(null);
-    const emojiActionRef = useRef<HTMLDivElement>(null);
-    const pollActionRef = useRef<HTMLDivElement>(null);
-    const aiActionRef = useRef<HTMLDivElement>(null);
-    const audienceActionRef = useRef<HTMLButtonElement>(null);
+    const mediaActionRef = useRef<HTMLDivElement | null>(null);
+    const emojiActionRef = useRef<HTMLDivElement | null>(null);
+    const pollActionRef = useRef<HTMLDivElement | null>(null);
+    const aiActionRef = useRef<HTMLDivElement | null>(null);
+    const audienceActionRef = useRef<HTMLButtonElement | null>(null);
 
     const setMediaActionRef = (element: HTMLDivElement | null) => {
         mediaActionRef.current = element;
