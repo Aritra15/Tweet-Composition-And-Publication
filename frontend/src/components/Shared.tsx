@@ -283,21 +283,35 @@ export const BottomSheet = ({
   );
 };
 
-export const TweetActions = ({ likes, replies, reposts }: { likes: number, replies: number, reposts: number }) => (
+export const TweetActions = ({
+  likes,
+  replies,
+  reposts,
+  likedByMe = false,
+  onToggleLike,
+  onOpenComments,
+}: {
+  likes: number,
+  replies: number,
+  reposts: number,
+  likedByMe?: boolean,
+  onToggleLike?: () => void,
+  onOpenComments?: () => void,
+}) => (
   <div className="flex items-center justify-between text-app-muted max-w-[90%] mt-3">
-    <button className="flex items-center gap-1.5 group hover:text-app-peach transition-colors">
+    <button type="button" onClick={onOpenComments} className="flex items-center gap-1.5 group hover:text-app-peach transition-colors">
       <MessageCircle size={18} className="group-hover:stroke-app-peach" />
       <span className="text-xs">{replies}</span>
     </button>
-    <button className="flex items-center gap-1.5 group hover:text-app-lime transition-colors">
+    <button type="button" className="flex items-center gap-1.5 group hover:text-app-lime transition-colors">
       <Repeat size={18} className="group-hover:stroke-app-lime" />
       <span className="text-xs">{reposts}</span>
     </button>
-    <button className="flex items-center gap-1.5 group hover:text-app-error transition-colors">
-      <Heart size={18} className="group-hover:stroke-app-error" />
+    <button type="button" onClick={onToggleLike} className={`flex items-center gap-1.5 group transition-colors ${likedByMe ? 'text-app-error' : 'hover:text-app-error'}`}>
+      <Heart size={18} className={`${likedByMe ? 'fill-app-error stroke-app-error' : 'group-hover:stroke-app-error'}`} />
       <span className="text-xs">{likes}</span>
     </button>
-    <button aria-label="Close" className="flex items-center gap-1.5 group hover:text-app-lavender transition-colors">
+    <button type="button" aria-label="Close" className="flex items-center gap-1.5 group hover:text-app-lavender transition-colors">
       <Share size={18} className="group-hover:stroke-app-lavender" />
     </button>
   </div>

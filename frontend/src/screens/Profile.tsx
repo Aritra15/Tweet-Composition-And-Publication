@@ -129,7 +129,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="rounded-xl border border-white/10 overflow-hidden">
             <Feed
               tweetItems={visibleFeedItems}
-              userId={currentUser.id}
+              currentUser={currentUser}
               isThreadOpen={isShowingThread}
               headerRef={headerRef}
               handleOpenThread={handleOpenThread}

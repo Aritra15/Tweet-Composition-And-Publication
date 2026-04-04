@@ -1,26 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { MoreVertical } from 'lucide-react';
-import { Avatar, TweetActions } from "./Shared";
-import type { FeedMedia, FeedThread, FeedTweet } from "../types";
+import { Avatar, BottomSheet, TweetActions } from "./Shared";
+import type { FeedMedia, FeedThread, FeedTweet, User } from "../types";
 import VideoPlayer from './VideoPlayer';
 import MediaLightbox from './MediaLightbox';
 
+type FeedComment = {
+  id: string;
+  userId: string;
+  userName: string;
+  userHandle: string;
+  content: string;
+  createdAt: string;
+};
+
+type TweetEngagement = {
+  likesCount: number;
+  likedUserIds: string[];
+  comments: FeedComment[];
+};
+
+type EngagementState = Record<string, TweetEngagement>;
+
+const ENGAGEMENT_STORAGE_KEY = 'tweet_engagement_local_v1';
+
 interface FeedProps {
   tweetItems: FeedThread[],
-  userId: string,
+  currentUser: User,
   isThreadOpen: boolean,
   headerRef: React.RefObject<HTMLElement | null>;
   handleOpenThread: (twts: FeedThread) => void;
   onDeleteItem: (item: FeedThread) => Promise<void>;
 }
 
-const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef, handleOpenThread, onDeleteItem }) => {
+const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, headerRef, handleOpenThread, onDeleteItem }) => {
   const tweetCount = isThreadOpen ? tweetItems[0].tweets.length : 2;
   const [selectedPollOptions, setSelectedPollOptions] = useState<Record<string, string>>({});
   const [lightboxMedia, setLightboxMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [openMenuItemId, setOpenMenuItemId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [engagementState, setEngagementState] = useState<EngagementState>({});
+  const [activeCommentsTweet, setActiveCommentsTweet] = useState<FeedTweet | null>(null);
+  const [commentDraft, setCommentDraft] = useState('');
   const openMenuRef = useRef<HTMLDivElement | null>(null);
 
   const openLightbox = (url: string, type: 'image' | 'video') => {
@@ -29,6 +51,92 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
 
   const closeLightbox = () => {
     setLightboxMedia(null);
+  };
+
+  useEffect(() => {
+    const raw = localStorage.getItem(ENGAGEMENT_STORAGE_KEY);
+    if (!raw) return;
+
+    try {
+      const parsed = JSON.parse(raw) as EngagementState;
+      if (parsed && typeof parsed === 'object') {
+        setEngagementState(parsed);
+      }
+    } catch {
+      setEngagementState({});
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(ENGAGEMENT_STORAGE_KEY, JSON.stringify(engagementState));
+  }, [engagementState]);
+
+  const getTweetEngagement = (tweet: FeedTweet): TweetEngagement => {
+    return engagementState[tweet.id] ?? {
+      likesCount: tweet.likes,
+      likedUserIds: [],
+      comments: [],
+    };
+  };
+
+  const toggleLike = (tweet: FeedTweet) => {
+    setEngagementState((prev) => {
+      const current = prev[tweet.id] ?? {
+        likesCount: tweet.likes,
+        likedUserIds: [],
+        comments: [],
+      };
+
+      const alreadyLiked = current.likedUserIds.includes(currentUser.id);
+      const nextLikedUserIds = alreadyLiked
+        ? current.likedUserIds.filter((id) => id !== currentUser.id)
+        : [...current.likedUserIds, currentUser.id];
+
+      return {
+        ...prev,
+        [tweet.id]: {
+          ...current,
+          likedUserIds: nextLikedUserIds,
+          likesCount: Math.max(0, current.likesCount + (alreadyLiked ? -1 : 1)),
+        },
+      };
+    });
+  };
+
+  const submitComment = () => {
+    if (!activeCommentsTweet || !commentDraft.trim()) {
+      return;
+    }
+
+    const content = commentDraft.trim();
+    const tweet = activeCommentsTweet;
+
+    setEngagementState((prev) => {
+      const current = prev[tweet.id] ?? {
+        likesCount: tweet.likes,
+        likedUserIds: [],
+        comments: [],
+      };
+
+      const nextComment: FeedComment = {
+        id: crypto.randomUUID(),
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userHandle: currentUser.handle,
+        content,
+        createdAt: new Date().toISOString(),
+      };
+
+      return {
+        ...prev,
+        [tweet.id]: {
+          ...current,
+          comments: [nextComment, ...current.comments],
+        },
+      };
+    });
+
+    setCommentDraft('');
   };
 
   const getPollBarWidth = (votesCount: number, totalVotes: number): string => {
@@ -116,7 +224,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
   return (
     <div className="flex flex-col">
       {tweetItems.map((item, i) => {
-        const isOwnerItem = item.tweets[0]?.author.id === userId;
+        const isOwnerItem = item.tweets[0]?.author.id === currentUser.id;
         const isHoveredItem = hoveredItemId === item.id;
         const isMenuOpen = openMenuItemId === item.id;
         const isThreadItem = item.isThread && item.tweets.length > 1;
@@ -266,7 +374,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                               const totalVotes = tweet.poll?.options.reduce((sum, o) => sum + o.votesCount, 0) ?? 0;
                               const selectedOptionId = selectedPollOptions[tweet.id];
                               const isSelected = selectedOptionId === option.id;
-                              const isCurrentUserTweet = tweet.author.id === userId;
+                              const isCurrentUserTweet = tweet.author.id === currentUser.id;
                               const canSelect = !isCurrentUserTweet;
                               const hasVoted = !!selectedPollOptions[tweet.id];
 
@@ -308,7 +416,14 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                         </div>
                       )}
 
-                      <TweetActions likes={tweet.likes} replies={tweet.replies} reposts={tweet.reposts} />
+                      <TweetActions
+                        likes={getTweetEngagement(tweet).likesCount}
+                        replies={getTweetEngagement(tweet).comments.length > 0 ? getTweetEngagement(tweet).comments.length : tweet.replies}
+                        reposts={tweet.reposts}
+                        likedByMe={getTweetEngagement(tweet).likedUserIds.includes(currentUser.id)}
+                        onToggleLike={() => toggleLike(tweet)}
+                        onOpenComments={() => setActiveCommentsTweet(tweet)}
+                      />
                     </div>
                   </div>
                 </article>
@@ -326,6 +441,57 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
           </div>
         );
       })}
+
+      <BottomSheet
+        isOpen={activeCommentsTweet !== null}
+        onClose={() => {
+          setActiveCommentsTweet(null);
+          setCommentDraft('');
+        }}
+        title={activeCommentsTweet ? `Comments · @${activeCommentsTweet.author.handle}` : 'Comments'}
+      >
+        <div className="space-y-3">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-sm text-white/90 whitespace-pre-wrap">{activeCommentsTweet?.text}</p>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-[#0f1318] p-3">
+            <textarea
+              value={commentDraft}
+              onChange={(event) => setCommentDraft(event.target.value)}
+              className="w-full min-h-[90px] rounded-lg border border-white/10 bg-[#0a0d12] px-3 py-2 text-sm text-white resize-y"
+              placeholder="Write a comment"
+            />
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={submitComment}
+                className="rounded-full bg-app-peach px-4 py-1.5 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
+              >
+                Comment
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+            {(activeCommentsTweet ? getTweetEngagement(activeCommentsTweet).comments : []).length === 0 && (
+              <div className="rounded-lg border border-dashed border-white/20 p-3 text-xs text-white/55">
+                No comments yet. Be the first to reply.
+              </div>
+            )}
+
+            {(activeCommentsTweet ? getTweetEngagement(activeCommentsTweet).comments : []).map((comment) => (
+              <div key={comment.id} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+                <div className="flex items-center gap-2 text-xs text-white/60">
+                  <span className="font-semibold text-white/85">{comment.userName}</span>
+                  <span>@{comment.userHandle}</span>
+                </div>
+                <p className="mt-1 text-sm text-white/90 whitespace-pre-wrap">{comment.content}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </BottomSheet>
 
       <MediaLightbox
         isOpen={lightboxMedia !== null}

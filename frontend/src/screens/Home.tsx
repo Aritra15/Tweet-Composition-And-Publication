@@ -215,7 +215,7 @@ export const HomeScreen: React.FC<HomeProps> = ({ onNavigate, currentUser, heade
         {/* Feed */}
         <Feed
           tweetItems={visibleTweets}
-          userId={currentUser.id}
+          currentUser={currentUser}
           isThreadOpen={isShowingThread}
           headerRef={headerRef}
           handleOpenThread={handleOpenThread}
