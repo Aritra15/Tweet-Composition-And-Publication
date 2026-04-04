@@ -189,16 +189,20 @@ function App() {
     if (!currentUser) return;
 
     const fetchInitialTweets = async () => {
-      const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=15&offset=0&viewer_user_id=${currentUser.id}`);
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/tweets?limit=15&offset=0&viewer_user_id=${currentUser.id}`);
 
-      if (!response.ok) {
+        if (!response.ok) {
+          setTweetLoading(false);
+          return;
+        }
+
+        const tweets: ApiTweetResponse[] = await response.json();
+        setFetchedFeedItems(mapApiTweetsToFeedThreads(tweets));
         setTweetLoading(false);
-        return;
+      } catch {
+        setTweetLoading(false);
       }
-
-      const tweets: ApiTweetResponse[] = await response.json();
-      setFetchedFeedItems(mapApiTweetsToFeedThreads(tweets));
-      setTweetLoading(false);
     };
 
     void fetchInitialTweets();
@@ -358,7 +362,7 @@ function App() {
         )}
       </AnimatePresence>
 
-      {!tweetLoading && (
+      {(!tweetLoading || currentScreen !== ScreenName.HOME) && (
         <div
           style={{ paddingTop: headerHeight }}
           className="relative min-h-screen text-app-text"
