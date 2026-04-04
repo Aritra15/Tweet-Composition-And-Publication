@@ -119,6 +119,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
         const isOwnerItem = item.tweets[0]?.author.id === userId;
         const isHoveredItem = hoveredItemId === item.id;
         const isMenuOpen = openMenuItemId === item.id;
+        const isThreadItem = item.isThread && item.tweets.length > 1;
 
         return (
           <div
@@ -141,62 +142,80 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, userId, isThreadOpen, headerRef
                 setOpenMenuItemId(null);
               }
             }}
-            className={"flex flex-col hover:bg-app-card/30 transition-colors cursor-pointer" + (i === tweetItems.length - 1 ? "" : " border-b border-white/10")}
+            className={"flex flex-col hover:bg-app-card/30 transition-colors cursor-pointer " + (isThreadItem ? "bg-[#1a1f23]/40 " : "") + (i === tweetItems.length - 1 ? "" : "border-b border-white/10")}
           >
+            {isThreadItem && (
+              <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-peach/80">
+                Thread · {item.tweets.length} posts
+              </div>
+            )}
+
             {item.tweets.slice(0, tweetCount).map((tweet: FeedTweet, index: number) => {
+              const showAuthorMeta = !isThreadItem || index === 0;
+
               return (
                 <article key={tweet.id} className={"p-4 relative group/tweet"}>
                   {item.tweets.length !== 1 && index < tweetCount - 1 && (
                     <div className="absolute left-[38px] top-[60px] bottom-[-20px] w-0.5 bg-[#575757]" />
                   )}
                   <div className="flex gap-3">
-                    <div className="shrink-0 z-10">
-                      <Avatar src={tweet.author.avatar} alt={tweet.author.name} />
+                    <div className="shrink-0 z-10 w-10 flex justify-center">
+                      {showAuthorMeta ? (
+                        <Avatar src={tweet.author.avatar} alt={tweet.author.name} />
+                      ) : (
+                        <span className="mt-3 h-2.5 w-2.5 rounded-full bg-app-peach ring-2 ring-[#1a1f23]" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3 mb-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="font-bold text-app-text truncate">{tweet.author.name}</span>
-                          <span className="text-app-muted truncate">@{tweet.author.handle}</span>
-                          <span className="text-app-muted text-sm whitespace-nowrap">· {tweet.time}</span>
-                        </div>
-                        {isOwnerItem && index === 0 && (
-                          <div className="relative shrink-0">
-                            <button
-                              type="button"
-                              data-menu-trigger="true"
-                              aria-label="More options"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setOpenMenuItemId(isMenuOpen ? null : item.id);
-                              }}
-                              className={`rounded-full p-1.5 text-app-muted hover:bg-white/10 hover:text-app-text transition ${isHoveredItem || isMenuOpen ? 'opacity-100' : 'opacity-0'}`}
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-
-                            {isMenuOpen && (
-                              <div
-                                ref={openMenuRef}
-                                className="absolute right-0 top-8 z-20 min-w-[120px] rounded-xl border border-white/15 bg-[#111315] p-1 shadow-xl"
-                              >
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    void handleDeleteClick(item);
-                                  }}
-                                  disabled={deletingItemId === item.id}
-                                  data-delete-action="true"
-                                  className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-red-500/10 disabled:opacity-50"
-                                >
-                                  {deletingItemId === item.id ? 'Deleting...' : 'Delete'}
-                                </button>
-                              </div>
-                            )}
+                      {showAuthorMeta ? (
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-app-text truncate">{tweet.author.name}</span>
+                            <span className="text-app-muted truncate">@{tweet.author.handle}</span>
+                            <span className="text-app-muted text-sm whitespace-nowrap">· {tweet.time}</span>
                           </div>
-                        )}
-                      </div>
+                          {isOwnerItem && index === 0 && (
+                            <div className="relative shrink-0">
+                              <button
+                                type="button"
+                                data-menu-trigger="true"
+                                aria-label="More options"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuItemId(isMenuOpen ? null : item.id);
+                                }}
+                                className={`rounded-full p-1.5 text-app-muted hover:bg-white/10 hover:text-app-text transition ${isHoveredItem || isMenuOpen ? 'opacity-100' : 'opacity-0'}`}
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+
+                              {isMenuOpen && (
+                                <div
+                                  ref={openMenuRef}
+                                  className="absolute right-0 top-8 z-20 min-w-[120px] rounded-xl border border-white/15 bg-[#111315] p-1 shadow-xl"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      void handleDeleteClick(item);
+                                    }}
+                                    disabled={deletingItemId === item.id}
+                                    data-delete-action="true"
+                                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                                  >
+                                    {deletingItemId === item.id ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-app-muted">
+                          Post {index + 1} of {item.tweets.length}
+                        </div>
+                      )}
                       <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">
                         {tweet.text}
                       </p>
