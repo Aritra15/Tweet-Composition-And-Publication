@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MoreVertical } from 'lucide-react';
-import { Avatar, BottomSheet, TweetActions } from "./Shared";
+import { Avatar, TweetActions } from "./Shared";
 import type { FeedMedia, FeedThread, FeedTweet, User } from "../types";
 import VideoPlayer from './VideoPlayer';
 import MediaLightbox from './MediaLightbox';
@@ -63,6 +63,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
   const [engagementState, setEngagementState] = useState<EngagementState>({});
   const [activeCommentsTweet, setActiveCommentsTweet] = useState<FeedTweet | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
   const openMenuRef = useRef<HTMLDivElement | null>(null);
 
   const openLightbox = (url: string, type: 'image' | 'video') => {
@@ -90,6 +91,19 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
       likedByMe: false,
       comments: [],
     };
+  };
+
+  const formatCommentAge = (createdAt: string): string => {
+    const createdTime = new Date(createdAt).getTime();
+    if (Number.isNaN(createdTime)) return 'now';
+
+    const diffInMinutes = Math.max(1, Math.floor((Date.now() - createdTime) / 60000));
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h`;
+
+    return `${Math.floor(diffInHours / 24)}d`;
   };
 
   const refreshTweetSummary = async (tweetId: string) => {
@@ -248,12 +262,13 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
   };
 
   const submitComment = async () => {
-    if (!activeCommentsTweet || !commentDraft.trim()) {
+    if (!activeCommentsTweet || !commentDraft.trim() || submittingComment) {
       return;
     }
 
     const tweet = activeCommentsTweet;
     const content = commentDraft.trim();
+    setSubmittingComment(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/${tweet.id}/comments`, {
@@ -293,6 +308,8 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
       await refreshTweetSummary(tweet.id);
     } catch {
       // User can retry when API fails.
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -595,56 +612,94 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
         );
       })}
 
-      <BottomSheet
-        isOpen={activeCommentsTweet !== null}
-        onClose={() => {
-          setActiveCommentsTweet(null);
-          setCommentDraft('');
-        }}
-        title={activeCommentsTweet ? `Comments · @${activeCommentsTweet.author.handle}` : 'Comments'}
-      >
-        <div className="space-y-3">
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-            <p className="text-sm text-white/90 whitespace-pre-wrap">{activeCommentsTweet?.text}</p>
-          </div>
+      {activeCommentsTweet && (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-[2px]"
+            onClick={() => {
+              setActiveCommentsTweet(null);
+              setCommentDraft('');
+            }}
+          />
 
-          <div className="rounded-xl border border-white/10 bg-[#0f1318] p-3">
-            <textarea
-              value={commentDraft}
-              onChange={(event) => setCommentDraft(event.target.value)}
-              className="w-full min-h-[90px] rounded-lg border border-white/10 bg-[#0a0d12] px-3 py-2 text-sm text-white resize-y"
-              placeholder="Write a comment"
-            />
-            <div className="mt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => void submitComment()}
-                className="rounded-full bg-app-peach px-4 py-1.5 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
-              >
-                Comment
-              </button>
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-4 pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-xl h-[82%] bg-[#101214] border border-white/10 rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col">
+              <div className="relative flex items-center px-4 py-3 border-b border-white/10 bg-[#101214]/95 backdrop-blur shrink-0">
+                <button
+                  onClick={() => {
+                    setActiveCommentsTweet(null);
+                    setCommentDraft('');
+                  }}
+                  className="text-white/90 hover:text-white text-sm font-medium px-1 py-1"
+                >
+                  Close
+                </button>
+                <h3 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-base font-semibold text-white">
+                  Comments
+                </h3>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+                <div className="rounded-2xl border border-white/10 bg-[#14181d] p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Avatar src={activeCommentsTweet.author.avatar} alt={activeCommentsTweet.author.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{activeCommentsTweet.author.name}</p>
+                      <p className="text-xs text-white/55 truncate">@{activeCommentsTweet.author.handle}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-white/85 whitespace-pre-wrap">{activeCommentsTweet.text}</p>
+                </div>
+
+                <div className="space-y-2">
+                  {(getTweetEngagement(activeCommentsTweet).comments).length === 0 && (
+                    <div className="rounded-xl border border-dashed border-white/20 p-3 text-xs text-white/55">
+                      No comments yet. Start the conversation.
+                    </div>
+                  )}
+
+                  {getTweetEngagement(activeCommentsTweet).comments.map((comment) => (
+                    <div key={comment.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="flex items-start gap-2">
+                        <Avatar src={comment.profilePictureUrl} alt={comment.userName} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 text-xs text-white/55">
+                            <span className="font-semibold text-white/85 truncate">{comment.userName}</span>
+                            <span className="truncate">@{comment.userHandle}</span>
+                            <span className="shrink-0">· {formatCommentAge(comment.createdAt)}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-white/90 whitespace-pre-wrap">{comment.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 border-t border-white/10 bg-[#101214]/95 backdrop-blur p-3">
+                <div className="rounded-xl border border-white/10 bg-[#0f1318] p-2">
+                  <textarea
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                    className="w-full min-h-[86px] rounded-lg border border-white/10 bg-[#0a0d12] px-3 py-2 text-sm text-white resize-y"
+                    placeholder="Write your reply"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={submittingComment || !commentDraft.trim()}
+                      onClick={() => void submitComment()}
+                      className="rounded-full bg-app-peach px-4 py-1.5 text-sm font-semibold text-[#111315] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                    >
+                      {submittingComment ? 'Posting...' : 'Reply'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-            {(activeCommentsTweet ? getTweetEngagement(activeCommentsTweet).comments : []).length === 0 && (
-              <div className="rounded-lg border border-dashed border-white/20 p-3 text-xs text-white/55">
-                No comments yet. Be the first to reply.
-              </div>
-            )}
-
-            {(activeCommentsTweet ? getTweetEngagement(activeCommentsTweet).comments : []).map((comment) => (
-              <div key={comment.id} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-                <div className="flex items-center gap-2 text-xs text-white/60">
-                  <span className="font-semibold text-white/85">{comment.userName}</span>
-                  <span>@{comment.userHandle}</span>
-                </div>
-                <p className="mt-1 text-sm text-white/90 whitespace-pre-wrap">{comment.content}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </BottomSheet>
+        </>
+      )}
 
       <MediaLightbox
         isOpen={lightboxMedia !== null}
