@@ -7,7 +7,7 @@ import { PublishScreen } from './screens/Publish';
 import { AuthScreen } from './screens/Auth';
 import { ScreenName, type FeedThread, type Thread, type User } from './types';
 import { Avatar } from './components/Shared';
-import { Feather } from 'lucide-react';
+import { CalendarClock, Feather, Sparkles, TrendingUp } from 'lucide-react';
 import ProfileMenu from './components/ProfileMenu';
 import './App.css';
 
@@ -307,29 +307,71 @@ function App() {
       {!tweetLoading && (
         <div
           style={{ paddingTop: headerHeight }}
-          className="max-w-[45%] mx-auto min-h-screen bg-app-bg text-app-text overflow-hidden relative shadow-2xl"
+          className="relative min-h-screen text-app-text"
         >
-          {currentScreen !== ScreenName.PROFILE && (
-            <HomeScreen
-              onNavigate={navigate}
-              currentUser={currentUser}
-              headerRef={headerRef}
-              headerHeight={headerHeight}
-              publishedFeedItems={publishedFeedItems}
-              fetchedFeedItems={fetchedFeedItems}
-              onDeleteFeedItem={handleDeleteFeedItem}
-            />
-          )}
+          <div className="mx-auto w-full max-w-[1320px] px-3 sm:px-4 lg:px-6 pb-6">
+            <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,760px)_260px] gap-5 xl:gap-6 items-start">
+              <aside className="hidden xl:flex flex-col gap-4 sticky top-4">
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <div className="inline-flex items-center gap-2 text-app-peach text-xs font-semibold uppercase tracking-[0.12em]">
+                    <Sparkles size={14} /> Workspace
+                  </div>
+                  <p className="mt-2 text-sm text-white/90 leading-relaxed">
+                    Draft thread ideas quickly, then publish as a clean sequence to keep your timeline cohesive.
+                  </p>
+                </div>
 
-          {currentScreen === ScreenName.PROFILE && (
-            <ProfileScreen
-              onNavigate={navigate}
-              currentUser={currentUser}
-              headerRef={headerRef}
-              userFeedItems={profileFeedItems}
-              onDeleteFeedItem={handleDeleteFeedItem}
-            />
-          )}
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <div className="inline-flex items-center gap-2 text-cyan-300 text-xs font-semibold uppercase tracking-[0.12em]">
+                    <CalendarClock size={14} /> Daily Goal
+                  </div>
+                  <p className="mt-2 text-sm text-white/75">Post 1 insight and 1 media update today.</p>
+                </div>
+              </aside>
+
+              <div className="min-h-screen rounded-2xl border border-white/10 bg-app-bg shadow-[0_26px_80px_rgba(0,0,0,0.52)] overflow-hidden relative">
+                {currentScreen !== ScreenName.PROFILE && (
+                  <HomeScreen
+                    onNavigate={navigate}
+                    currentUser={currentUser}
+                    headerRef={headerRef}
+                    headerHeight={headerHeight}
+                    publishedFeedItems={publishedFeedItems}
+                    fetchedFeedItems={fetchedFeedItems}
+                    onDeleteFeedItem={handleDeleteFeedItem}
+                  />
+                )}
+
+                {currentScreen === ScreenName.PROFILE && (
+                  <ProfileScreen
+                    onNavigate={navigate}
+                    currentUser={currentUser}
+                    headerRef={headerRef}
+                    userFeedItems={profileFeedItems}
+                    onDeleteFeedItem={handleDeleteFeedItem}
+                  />
+                )}
+              </div>
+
+              <aside className="hidden xl:flex flex-col gap-4 sticky top-4">
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <div className="inline-flex items-center gap-2 text-lime-300 text-xs font-semibold uppercase tracking-[0.12em]">
+                    <TrendingUp size={14} /> Trending
+                  </div>
+                  <ul className="mt-3 space-y-2 text-sm text-white/80">
+                    <li>#ProductBuildInPublic</li>
+                    <li>#UIEngineering</li>
+                    <li>#FrontendWeekly</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-white/15 bg-[#131619] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.34)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-muted">Tip</p>
+                  <p className="mt-2 text-sm text-white/75">Use threaded posts for progress logs instead of posting disconnected single tweets.</p>
+                </div>
+              </aside>
+            </div>
+          </div>
 
           <AnimatePresence>
             {(currentScreen === ScreenName.COMPOSE || currentScreen === ScreenName.PUBLISH) && (
