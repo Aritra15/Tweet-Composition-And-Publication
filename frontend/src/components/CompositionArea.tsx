@@ -18,11 +18,11 @@ interface CompositionAreaProps {
     setActiveTweetIndex: React.Dispatch<React.SetStateAction<number>>;
     setActiveSheet: React.Dispatch<React.SetStateAction<'media' | 'emoji' | 'poll' | 'ai' | 'audience' | null>>;
     audience: string;
-    mediaActionRef: React.RefObject<HTMLDivElement | null>;
-    emojiActionRef: React.RefObject<HTMLDivElement | null>;
-    pollActionRef: React.RefObject<HTMLDivElement | null>;
-    aiActionRef: React.RefObject<HTMLDivElement | null>;
-    audienceActionRef: React.RefObject<HTMLButtonElement | null>;
+    mediaActionRef: React.RefObject<HTMLDivElement>;
+    emojiActionRef: React.RefObject<HTMLDivElement>;
+    pollActionRef: React.RefObject<HTMLDivElement>;
+    aiActionRef: React.RefObject<HTMLDivElement>;
+    audienceActionRef: React.RefObject<HTMLButtonElement>;
 }
 
 const CompositionArea: React.FC<CompositionAreaProps> = ({ onBack, onNext, currentUser, tweets, setTweets, activeTweetIndex, setActiveTweetIndex, setActiveSheet, audience, mediaActionRef, emojiActionRef, pollActionRef, aiActionRef, audienceActionRef }) => {
