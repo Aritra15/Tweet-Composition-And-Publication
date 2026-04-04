@@ -52,6 +52,8 @@ jobs:
 
       - name: Sync to fork
         run: |
+          git config user.email "ci@github-actions"
+          git config user.name "GitHub Actions"
           git remote add fork https://x-access-token:${{ secrets.FORK_PAT }}@github.com/azraihan/Tweet-Composition-And-Publication.git
           git checkout -b sync-branch
           git rm -r --cached .github/workflows
