@@ -284,6 +284,10 @@ function App() {
             user={currentUser}
             onClose={() => setProfileMenuOpen(false)}
             onLogout={handleLogout}
+            onOpenProfile={() => {
+              setProfileMenuOpen(false);
+              navigate(ScreenName.PROFILE);
+            }}
           />
         )}
       </AnimatePresence>
