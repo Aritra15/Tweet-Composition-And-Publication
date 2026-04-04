@@ -32,15 +32,30 @@ class PollOptionAttachCreate(BaseModel):
     text: str = Field(..., min_length=1, max_length=100)
 
 
-# class ThreadTweetCreate(BaseModel):
-#     text: str = Field(..., min_length=1, max_length=280)
-#     media: list[MediaItem] = []
-#     poll: PollCreate | None = None
+class PollVoteCreate(BaseModel):
+    user_id: str
+    option_id: str
 
 
-# class ThreadCreate(BaseModel):
-#     user_id: str
-#     tweets: list[ThreadTweetCreate] = Field(..., min_length=2)
+class ThreadTweetCreate(BaseModel):
+    text: str = Field(..., min_length=1, max_length=280)
+    media: list[MediaItem] = []
+    poll: PollCreate | None = None
+
+
+class ThreadCreate(BaseModel):
+    user_id: str
+    tweets: list[ThreadTweetCreate] = Field(..., min_length=2)
+
+
+class ThreadLinkCreate(BaseModel):
+    user_id: str
+    tweet_ids: list[str] = Field(..., min_length=2)
+
+
+class ThreadLinkResponse(BaseModel):
+    thread_id: str
+    tweet_ids: list[str]
 
 
 class MediaResponse(BaseModel):
@@ -68,6 +83,7 @@ class PollResponse(BaseModel):
     question: str
     created_at: datetime
     options: list[PollOptionResponse] = []
+    voted_option_id: str | None = None
 
 
 class TweetResponse(BaseModel):
@@ -82,15 +98,17 @@ class TweetResponse(BaseModel):
     comments_count: int = 0
     media: list[MediaResponse] = []
     poll: PollResponse | None = None
+    thread_id: str | None = None
+    thread_position: int | None = None
 
 
-# class ThreadResponse(BaseModel):
-#     id: str
-#     user_id: str
-#     created_at: datetime
-#     updated_at: datetime
-#     status: str
-#     tweets: list[TweetResponse] = []
+class ThreadResponse(BaseModel):
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
+    status: str
+    tweets: list[TweetResponse] = []
 
 
 class TweetDraft(BaseModel):

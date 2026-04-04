@@ -4,6 +4,8 @@ from app.schemas.tweet import (
     MediaResponse,
     PollResponse,
     PollOptionResponse,
+    ThreadLinkCreate,
+    ThreadLinkResponse,
     TweetDraft,
     TweetStubResponse,
 )
@@ -15,7 +17,22 @@ class TweetService:
     def __init__(self):
         self.supabase = get_supabase_client()
 
-    def _get_tweet_poll(self, tweet_id: str) -> PollResponse | None:
+    def _get_thread_meta_for_tweet(self, tweet_id: str) -> dict[str, str | int] | None:
+        thread_result = self.supabase.table("thread_tweets")\
+            .select("thread_id,position")\
+            .eq("tweet_id", tweet_id)\
+            .limit(1)\
+            .execute()
+
+        if not thread_result.data:
+            return None
+
+        return {
+            "thread_id": thread_result.data[0]["thread_id"],
+            "thread_position": thread_result.data[0]["position"],
+        }
+
+    def _get_tweet_poll(self, tweet_id: str, viewer_user_id: str | None = None) -> PollResponse | None:
         poll_result = self.supabase.table("polls").select("*").eq("tweet_id", tweet_id).limit(1).execute()
 
         if not poll_result.data:
@@ -23,7 +40,31 @@ class TweetService:
 
         poll = poll_result.data[0]
         poll_options_result = self.supabase.table("poll_options").select("*").eq("poll_id", poll["id"]).order("position").execute()
-        poll_options = [PollOptionResponse(**option) for option in poll_options_result.data] if poll_options_result.data else []
+        option_rows = poll_options_result.data or []
+        option_ids = [row["id"] for row in option_rows]
+
+        votes_by_option: dict[str, int] = {option_id: 0 for option_id in option_ids}
+        voted_option_id: str | None = None
+
+        if option_ids:
+            poll_votes_result = self.supabase.table("poll_votes").select("option_id,user_id").eq("poll_id", poll["id"]).execute()
+            for vote_row in (poll_votes_result.data or []):
+                option_id = vote_row["option_id"]
+                votes_by_option[option_id] = votes_by_option.get(option_id, 0) + 1
+                if viewer_user_id and vote_row.get("user_id") == viewer_user_id:
+                    voted_option_id = option_id
+
+        poll_options = [
+            PollOptionResponse(
+                id=option["id"],
+                poll_id=option["poll_id"],
+                text=option["text"],
+                position=option["position"],
+                votes_count=votes_by_option.get(option["id"], 0),
+                created_at=option["created_at"],
+            )
+            for option in option_rows
+        ]
 
         return PollResponse(
             id=poll["id"],
@@ -31,6 +72,7 @@ class TweetService:
             question=poll["question"],
             created_at=poll["created_at"],
             options=poll_options,
+            voted_option_id=voted_option_id,
         )
 
     # async def _create_tweet_record(self, tweet_data: ThreadTweetCreate, user_id: str) -> TweetResponse:
@@ -135,7 +177,7 @@ class TweetService:
     #             raise e
     #         raise HTTPException(status_code=500, detail=f"Error creating thread: {str(e)}")
 
-    async def get_tweet(self, tweet_id: str) -> TweetResponse:
+    async def get_tweet(self, tweet_id: str, viewer_user_id: str | None = None) -> TweetResponse:
         """Get a tweet by ID with its media and poll."""
         try:
             # Get tweet
@@ -153,7 +195,8 @@ class TweetService:
             media_result = self.supabase.table("media").select("*").eq("tweet_id", tweet_id).execute()
 
             media_responses = [MediaResponse(**m) for m in media_result.data] if media_result.data else []
-            poll_response = self._get_tweet_poll(tweet_id)
+            poll_response = self._get_tweet_poll(tweet_id, viewer_user_id)
+            thread_meta = self._get_thread_meta_for_tweet(tweet_id)
 
             likes_result = self.supabase.table("tweet_likes").select("user_id").eq("tweet_id", tweet_id).execute()
             comments_result = self.supabase.table("tweet_comments").select("id").eq("tweet_id", tweet_id).is_("deleted_at", "null").execute()
@@ -170,6 +213,8 @@ class TweetService:
                 comments_count=len(comments_result.data or []),
                 media=media_responses,
                 poll=poll_response,
+                thread_id=thread_meta["thread_id"] if thread_meta else None,
+                thread_position=thread_meta["thread_position"] if thread_meta else None,
             )
 
         except Exception as e:
@@ -177,7 +222,7 @@ class TweetService:
                 raise e
             raise HTTPException(status_code=500, detail=f"Error fetching tweet: {str(e)}")
 
-    async def get_user_tweets(self, user_id: str, limit: int = 50, offset: int = 0) -> list[TweetResponse]:
+    async def get_user_tweets(self, user_id: str, limit: int = 50, offset: int = 0, viewer_user_id: str | None = None) -> list[TweetResponse]:
         """Get all tweets for a user with media and poll data."""
         try:
             tweets_result = self.supabase.table("tweets")\
@@ -191,24 +236,37 @@ class TweetService:
             if not tweets_result.data:
                 return []
 
+            user_result = self.supabase.table("users")\
+                .select("id,username,user_handle,profile_picture_url")\
+                .eq("id", user_id)\
+                .limit(1)\
+                .execute()
+            user_info = (user_result.data or [{}])[0]
+
             tweet_responses = []
             for tweet in tweets_result.data:
                 # Get media for each tweet
                 media_result = self.supabase.table("media").select("*").eq("tweet_id", tweet["id"]).execute()
                 media_responses = [MediaResponse(**m) for m in media_result.data] if media_result.data else []
-                poll_response = self._get_tweet_poll(tweet["id"])
+                poll_response = self._get_tweet_poll(tweet["id"], viewer_user_id)
+                thread_meta = self._get_thread_meta_for_tweet(tweet["id"])
                 likes_result = self.supabase.table("tweet_likes").select("user_id").eq("tweet_id", tweet["id"]).execute()
                 comments_result = self.supabase.table("tweet_comments").select("id").eq("tweet_id", tweet["id"]).is_("deleted_at", "null").execute()
 
                 tweet_responses.append(TweetResponse(
                     id=tweet["id"],
                     user_id=tweet["user_id"],
+                    username=user_info.get("username", ""),
+                    user_handle=user_info.get("user_handle", ""),
+                    profile_picture_url=user_info.get("profile_picture_url"),
                     text=tweet["text"],
                     created_at=tweet["created_at"],
                     likes_count=len(likes_result.data or []),
                     comments_count=len(comments_result.data or []),
                     media=media_responses,
                     poll=poll_response,
+                    thread_id=thread_meta["thread_id"] if thread_meta else None,
+                    thread_position=thread_meta["thread_position"] if thread_meta else None,
                 ))
 
             return tweet_responses
@@ -216,7 +274,7 @@ class TweetService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching tweets: {str(e)}")
 
-    async def get_latest_tweets(self, limit: int = 15, offset: int = 0) -> list[TweetResponse]:
+    async def get_latest_tweets(self, limit: int = 15, offset: int = 0, viewer_user_id: str | None = None) -> list[TweetResponse]:
         tweets_result = self.supabase.table("tweets")\
             .select("*")\
             .order("created_at", desc=True)\
@@ -242,6 +300,8 @@ class TweetService:
 
         poll_ids = [p["id"] for p in polls_result.data] if polls_result.data else []
         poll_options_result = self.supabase.table("poll_options").select("*").in_("poll_id", poll_ids).execute() if poll_ids else None
+        poll_votes_result = self.supabase.table("poll_votes").select("poll_id,option_id,user_id").in_("poll_id", poll_ids).execute() if poll_ids else None
+        thread_tweets_result = self.supabase.table("thread_tweets").select("tweet_id,thread_id,position").in_("tweet_id", tweet_ids).execute()
 
         # Group by tweet_id / poll_id in memory
         media_by_tweet: dict = {}
@@ -252,9 +312,25 @@ class TweetService:
         for o in (poll_options_result.data if poll_options_result else []):
             options_by_poll.setdefault(o["poll_id"], []).append(o)
 
+        poll_vote_count_by_option: dict[str, int] = {}
+        voted_option_by_poll: dict[str, str] = {}
+        for vote_row in (poll_votes_result.data if poll_votes_result else []):
+            option_id = vote_row["option_id"]
+            poll_vote_count_by_option[option_id] = poll_vote_count_by_option.get(option_id, 0) + 1
+            if viewer_user_id and vote_row.get("user_id") == viewer_user_id:
+                voted_option_by_poll[vote_row["poll_id"]] = option_id
+
         polls_by_tweet: dict = {}
         for p in (polls_result.data or []):
             polls_by_tweet[p["tweet_id"]] = p
+
+        thread_meta_by_tweet: dict[str, dict[str, str | int]] = {
+            row["tweet_id"]: {
+                "thread_id": row["thread_id"],
+                "thread_position": row["position"],
+            }
+            for row in (thread_tweets_result.data or [])
+        }
 
         likes_count_by_tweet: dict[str, int] = {}
         for like_row in (likes_result.data or []):
@@ -276,7 +352,17 @@ class TweetService:
             if tid in polls_by_tweet:
                 p = polls_by_tweet[tid]
                 options = sorted(
-                    [PollOptionResponse(**o) for o in options_by_poll.get(p["id"], [])],
+                    [
+                        PollOptionResponse(
+                            id=o["id"],
+                            poll_id=o["poll_id"],
+                            text=o["text"],
+                            position=o["position"],
+                            votes_count=poll_vote_count_by_option.get(o["id"], 0),
+                            created_at=o["created_at"],
+                        )
+                        for o in options_by_poll.get(p["id"], [])
+                    ],
                     key=lambda o: o.position
                 )
                 poll_response = PollResponse(
@@ -285,6 +371,7 @@ class TweetService:
                     question=p["question"],
                     created_at=p["created_at"],
                     options=options,
+                    voted_option_id=voted_option_by_poll.get(p["id"]),
                 )
 
             tweet_responses.append(TweetResponse(
@@ -299,9 +386,89 @@ class TweetService:
                 comments_count=comments_count_by_tweet.get(tid, 0),
                 media=media_responses,
                 poll=poll_response,
+                thread_id=thread_meta_by_tweet.get(tid, {}).get("thread_id"),
+                thread_position=thread_meta_by_tweet.get(tid, {}).get("thread_position"),
             ))
 
         return tweet_responses
+
+    async def link_tweets_to_thread(self, payload: ThreadLinkCreate) -> ThreadLinkResponse:
+        """Create a thread and attach existing tweets in the specified order."""
+        tweet_ids = payload.tweet_ids
+        unique_tweet_ids = list(dict.fromkeys(tweet_ids))
+        if len(unique_tweet_ids) < 2:
+            raise HTTPException(status_code=400, detail="A thread requires at least two distinct tweets")
+
+        tweets_result = self.supabase.table("tweets")\
+            .select("id,user_id")\
+            .in_("id", unique_tweet_ids)\
+            .eq("user_id", payload.user_id)\
+            .execute()
+
+        if len(tweets_result.data or []) != len(unique_tweet_ids):
+            raise HTTPException(status_code=400, detail="All tweets must exist and belong to the requesting user")
+
+        linked_result = self.supabase.table("thread_tweets").select("tweet_id").in_("tweet_id", unique_tweet_ids).execute()
+        if linked_result.data:
+            raise HTTPException(status_code=409, detail="One or more tweets are already linked to a thread")
+
+        thread_result = self.supabase.table("threads").insert({
+            "user_id": payload.user_id,
+            "status": "published",
+        }).execute()
+
+        if not thread_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create thread")
+
+        thread_id = thread_result.data[0]["id"]
+
+        try:
+            thread_links = [
+                {
+                    "thread_id": thread_id,
+                    "tweet_id": tweet_id,
+                    "position": index,
+                }
+                for index, tweet_id in enumerate(unique_tweet_ids, start=1)
+            ]
+
+            link_result = self.supabase.table("thread_tweets").insert(thread_links).execute()
+            if not link_result.data:
+                raise HTTPException(status_code=500, detail="Failed to attach tweets to thread")
+
+            return ThreadLinkResponse(thread_id=thread_id, tweet_ids=unique_tweet_ids)
+        except Exception:
+            self.supabase.table("threads").delete().eq("id", thread_id).execute()
+            raise
+
+    async def delete_thread(self, thread_id: str, user_id: str) -> dict:
+        """Delete an entire thread and all its tweets."""
+        thread_result = self.supabase.table("threads")\
+            .select("id,user_id")\
+            .eq("id", thread_id)\
+            .limit(1)\
+            .execute()
+
+        if not thread_result.data:
+            raise HTTPException(status_code=404, detail="Thread not found")
+
+        thread = thread_result.data[0]
+        if thread["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="You can only delete your own threads")
+
+        thread_tweets_result = self.supabase.table("thread_tweets")\
+            .select("tweet_id")\
+            .eq("thread_id", thread_id)\
+            .order("position")\
+            .execute()
+
+        tweet_ids = [row["tweet_id"] for row in (thread_tweets_result.data or [])]
+        if tweet_ids:
+            self.supabase.table("tweets").delete().in_("id", tweet_ids).eq("user_id", user_id).execute()
+
+        self.supabase.table("threads").delete().eq("id", thread_id).eq("user_id", user_id).execute()
+
+        return {"message": "Thread deleted successfully", "id": thread_id}
 
     async def delete_tweet(self, tweet_id: str) -> dict:
         """Delete a tweet (media will be cascade deleted)"""
