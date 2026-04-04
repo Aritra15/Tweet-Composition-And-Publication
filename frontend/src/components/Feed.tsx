@@ -494,7 +494,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
 
   return (
     <div className="flex flex-col">
-      {tweetItems.map((item, i) => {
+      {tweetItems.map((item) => {
         const isOwnerItem = item.tweets[0]?.author.id === currentUser.id;
         const isHoveredItem = hoveredItemId === item.id;
         const isMenuOpen = openMenuItemId === item.id;
@@ -521,10 +521,15 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                 setOpenMenuItemId(null);
               }
             }}
-            className={"flex flex-col hover:bg-app-card/30 transition-colors cursor-pointer " + (isThreadItem ? "bg-[#1a1f23]/40 " : "") + (i === tweetItems.length - 1 ? "" : "border-b border-white/10")}
+            className={
+              "mx-2 my-2 overflow-hidden rounded-2xl border transition-colors cursor-pointer shadow-[0_10px_28px_rgba(0,0,0,0.25)] " +
+              (isThreadItem
+                ? "bg-[#1b2025]/85 border-app-peach/25"
+                : "bg-[#15191d]/85 border-white/10 hover:border-white/20 hover:bg-[#1a1f23]/85")
+            }
           >
             {isThreadItem && (
-              <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-peach/80">
+              <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-peach/80 border-b border-app-peach/15 bg-app-peach/[0.06]">
                 Thread · {item.tweets.length} posts
               </div>
             )}
@@ -533,7 +538,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
               const showAuthorMeta = !isThreadItem || index === 0;
 
               return (
-                <article key={tweet.id} className={"p-4 relative group/tweet"}>
+                <article key={tweet.id} className={"p-4 relative group/tweet " + (index > 0 ? "border-t border-white/10" : "") }>
                   {item.tweets.length !== 1 && index < tweetCount - 1 && (
                     <div className="absolute left-[38px] top-[60px] bottom-[-20px] w-0.5 bg-[#575757]" />
                   )}
