@@ -23,6 +23,7 @@ Return ONLY the enhanced text without any explanations, comments, or additional 
 - Clarifying ambiguous descriptions
 - Maintaining the core concept while making it more specific
 - Still keeping the prompt concise and focused on the main subject
+    
     Return ONLY the enhanced prompt without any explanations or comments.""",
 
         "hashtag_suggestion": """You are a social media assistant.
