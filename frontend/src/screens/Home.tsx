@@ -47,7 +47,7 @@ const MOCK_TWEETS: FeedThread[] = [
       },
       {
         id: '3b',
-        author: { id: "d", name: 'Design Daily', handle: 'designdaily', avatar: 'https://picsum.photos/102/102' },
+        author: { id: "c", name: 'Design Daily', handle: 'designdaily', avatar: 'https://picsum.photos/102/102' },
         text: '1. Framer - Still the king of interactions.\n2. Figma - The standard.\n3. ProtoPie - For complex sensors.',
         time: '6h',
         likes: 1800,
@@ -57,7 +57,7 @@ const MOCK_TWEETS: FeedThread[] = [
       },
       {
         id: '3c',
-        author: { id: "f", name: 'Design Daily', handle: 'designdaily', avatar: 'https://picsum.photos/102/102' },
+        author: { id: "c", name: 'Design Daily', handle: 'designdaily', avatar: 'https://picsum.photos/102/102' },
         text: '',
         time: '6h',
         likes: 1300,
