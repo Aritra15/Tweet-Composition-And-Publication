@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:8000"
     openrouter_model: str = "google/gemma-3-4b-it:free"
     openrouter_image_model: str = "black-forest-labs/flux.2-klein-4b"
+    pollinations_image_endpoint: str = "https://gen.pollinations.ai/v1/images/generations"
+    pollinations_image_model: str = "flux"
+    pollinations_image_size: str = "1024x1024"
+    pollinations_image_quality: str = "medium"
+    pollinations_image_timeout_seconds: float = 120.0
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 7

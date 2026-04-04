@@ -1,3 +1,4 @@
+import base64
 import httpx
 import re
 from datetime import datetime
@@ -6,6 +7,7 @@ from app.core.config import settings
 
 class OpenRouterService:
     BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+    POLLINATIONS_IMAGE_URL = "https://gen.pollinations.ai/v1/images/generations"
 
     PROMPTS = {
         "text_enhancement": """You are an expert writing assistant. Your task is to enhance the provided text by:
@@ -80,66 +82,80 @@ Return ONLY the enhanced text without any explanations, comments, or additional 
         )
 
     async def generate_image(self, prompt: str) -> dict[str, str]:
-        if not settings.openrouter_api_key:
-            raise ValueError("OpenRouter API key not configured")
+        if not settings.pollinations_api_key:
+            raise ValueError("Pollinations API key not configured")
 
         headers = {
-            "Authorization": f"Bearer {settings.openrouter_api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": settings.app_url,
-            "X-OpenRouter-Title": "Tweet Composition API"
+            "Authorization": f"Bearer {settings.pollinations_api_key}",
+            "Content-Type": "application/json"
         }
 
         payload = {
-            "model": settings.openrouter_image_model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "modalities": ["image"]
+            "prompt": prompt,
+            "model": settings.pollinations_image_model,
+            "n": 1,
+            "size": settings.pollinations_image_size,
+            "quality": settings.pollinations_image_quality,
+            "response_format": "b64_json",
+            "user": "tweet-composition-api",
+            "image": ""
         }
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(self.BASE_URL, json=payload, headers=headers)
+        endpoint = settings.pollinations_image_endpoint or self.POLLINATIONS_IMAGE_URL
+
+        async with httpx.AsyncClient(timeout=settings.pollinations_image_timeout_seconds) as client:
+            response = await client.post(endpoint, json=payload, headers=headers)
             response.raise_for_status()
             data = response.json()
 
-            if not data.get("choices"):
+            items = data.get("data")
+            if not items or not isinstance(items, list):
                 raise ValueError("No image generated in response")
 
-            message = data["choices"][0]["message"]
-            if not message.get("images"):
-                raise ValueError("No images found in response")
+            first = items[0]
+            if not isinstance(first, dict):
+                raise ValueError("Invalid image response format")
 
-            # Get the first generated image
-            image_data = message["images"][0]["image_url"]["url"]
+            revised_prompt = first.get("revised_prompt") or prompt
+            b64_data = first.get("b64_json")
+            image_url = first.get("url")
 
-            # Parse base64 data URL (format: data:image/png;base64,...)
-            base64_prefix = ""
-            if image_data.startswith("data:"):
-                parts = image_data.split(",", 1)
-                base64_prefix = parts[0]  # e.g., "data:image/png;base64"
-                image_data = parts[1]
+            mime_type = "image/png"
+
+            if isinstance(b64_data, str) and b64_data.strip():
+                raw_data = b64_data.strip()
+                if raw_data.startswith("data:"):
+                    prefix, raw_data = raw_data.split(",", 1)
+                    mime_type = prefix.split(";")[0].split(":", 1)[1]
+                image_data = raw_data
+            elif isinstance(image_url, str) and image_url.strip():
+                image_response = await client.get(image_url.strip())
+                image_response.raise_for_status()
+                content_type = image_response.headers.get("content-type", "image/png")
+                mime_type = content_type.split(";")[0].strip() or "image/png"
+                image_data = base64.b64encode(image_response.content).decode("ascii")
+            else:
+                raise ValueError("No image content found in provider response")
 
             # Generate unique filename with timestamp for reference
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            
-            if base64_prefix:
-                # Example: data:image/png;base64
-                mime_type = base64_prefix.split(";")[0].split(":")[1]  # "image/png"
-                ext = mime_type.split("/")[-1]  # "png" or "jpeg"
-            else:
-                ext = "png"  # fallback
+
+            ext_map = {
+                "image/jpeg": "jpg",
+                "image/jpg": "jpg",
+                "image/png": "png",
+                "image/webp": "webp",
+                "image/gif": "gif"
+            }
+            ext = ext_map.get(mime_type.lower(), "png")
 
             filename = f"generated_{timestamp}.{ext}"
 
             return {
                 "filename": filename,
                 "image_data": image_data,
-                "image_url": f"{base64_prefix},{image_data}" if base64_prefix else f"data:image/png;base64,{image_data}",
-                "prompt": prompt
+                "image_url": f"data:{mime_type};base64,{image_data}",
+                "prompt": revised_prompt
             }
 
     async def suggest_hashtags(self, text: str) -> list[str]:

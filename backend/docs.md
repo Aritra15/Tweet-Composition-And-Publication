@@ -190,7 +190,7 @@ curl -X POST "http://localhost:8000/api/v1/ai/suggest-hashtags" \
 
 **URL:** `http://localhost:8000/api/v1/ai/generate-image`
 
-**Description:** Generates an AI image using the Flux model via OpenRouter. The backend **automatically enhances the prompt** before generation. Returns base64 image data suitable for direct display or attaching to a tweet.
+**Description:** Generates an AI image using Pollinations (`https://gen.pollinations.ai/v1/images/generations`). The backend **automatically enhances the prompt** before generation. Returns base64 image data suitable for direct display or attaching to a tweet.
 
 **Request Body:**
 ```json
@@ -219,6 +219,7 @@ curl -X POST "http://localhost:8000/api/v1/ai/suggest-hashtags" \
 
 **Notes:**
 - Timeout: 120 seconds
+- Backend sends Pollinations payload fields: `model`, `n=1`, `size=1024x1024`, `quality=medium`, `response_format=b64_json`
 - `image_url` should be attached using `/media` or `/media/bulk/{tweet_id}` after creating a base tweet
 
 **Example:**
