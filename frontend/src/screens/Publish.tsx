@@ -20,7 +20,9 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
   const [isPublishing, setIsPublishing] = useState(false);
 
   const tweets = thread?.tweets ?? [];
-  const isThreadDraft = tweets.length > 1;
+  const isPublishableTweet = (tweet: TweetDraft) => tweet.text.trim().length > 0 || tweet.media.length > 0 || Boolean(tweet.poll);
+  const publishableTweets = tweets.filter(isPublishableTweet);
+  const isThreadDraft = publishableTweets.length > 1;
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToastMessage(message);
@@ -174,7 +176,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
     const createdTweets: Array<{ id: string; draft: TweetDraft }> = [];
 
     try {
-      for (const tweet of tweets) {
+      for (const tweet of publishableTweets) {
         const createdTweetId = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
         createdTweets.push({ id: createdTweetId, draft: tweet });
       }
@@ -203,22 +205,27 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
   };
 
   const handleFinish = async () => {
-    if (!tweets.length || isPublishing) {
+    if (isPublishing) {
       return;
     }
 
-    // const hasEmptyTweetText = tweets.some((tweet) => tweet.text.trim().length === 0);
-    // if (hasEmptyTweetText) {
-    //   showToast('All tweets must have text before publishing', 'error');
-    //   return;
-    // }
+    if (!publishableTweets.length) {
+      showToast('Cannot publish an empty tweet.', 'error');
+      return;
+    }
+
+    const skippedCount = tweets.length - publishableTweets.length;
 
     setIsPublishing(true);
 
     try {
       const publishedThread = await publishThreadTransactional();
 
-      showToast('Published successfully!', 'success');
+      if (skippedCount > 0) {
+        showToast(`Published successfully! ${skippedCount} empty ${skippedCount === 1 ? 'tweet was' : 'tweets were'} skipped.`, 'success');
+      } else {
+        showToast('Published successfully!', 'success');
+      }
 
       window.setTimeout(() => {
         onPublish(publishedThread);
@@ -252,18 +259,18 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
               <div className="flex flex-col items-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-2">Ready to post</h3>
                 <p className="text-white/65 text-center max-w-xs">
-                  {tweets.length > 1 ? `Your ${tweets.length} tweets are queued for publishing` : 'Your tweet is ready to be published'}
+                  {publishableTweets.length > 1 ? `Your ${publishableTweets.length} tweets are queued for publishing` : 'Your tweet is ready to be published'}
                 </p>
               </div>
 
               <div className="w-full space-y-3">
                 {isThreadDraft && (
                   <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-app-peach/80">
-                    Thread preview · {tweets.length} posts
+                    Thread preview · {publishableTweets.length} posts
                   </div>
                 )}
 
-                {tweets.map((tweet: TweetDraft, index: number) => {
+                {publishableTweets.map((tweet: TweetDraft, index: number) => {
                   const showAuthorMeta = !isThreadDraft || index === 0;
 
                   return (
@@ -285,7 +292,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                           </div>
                         ) : (
                           <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-app-muted">
-                            Post {index + 1} of {tweets.length}
+                            Post {index + 1} of {publishableTweets.length}
                           </div>
                         )}
                         <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">

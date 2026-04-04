@@ -77,7 +77,12 @@ const CompositionTweetItem: React.FC<CompositionTweetItemProps> = ({
                     {totalTweets > 1 && (
                         <button
                             aria-label="Close"
-                            onClick={() => onRemoveTweet(tweet.id)}
+                            type="button"
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onRemoveTweet(tweet.id);
+                            }}
                             className="text-white/60 hover:text-red-400 p-1 shrink-0 ml-2"
                         >
                             <Trash2 size={16} />

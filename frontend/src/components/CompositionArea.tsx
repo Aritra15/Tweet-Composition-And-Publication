@@ -41,7 +41,16 @@ const CompositionArea: React.FC<CompositionAreaProps> = ({ onBack, onNext, curre
 
     const handleRemoveTweet = (id: string) => {
         if (tweets.length === 1) return;
-        setTweets(tweets.filter(t => t.id !== id));
+
+        const removedIndex = tweets.findIndex((tweet) => tweet.id === id);
+        if (removedIndex === -1) return;
+
+        setTweets((prev) => prev.filter((tweet) => tweet.id !== id));
+        setActiveTweetIndex((prevIndex) => {
+            if (prevIndex > removedIndex) return prevIndex - 1;
+            if (prevIndex === removedIndex) return Math.max(0, prevIndex - 1);
+            return prevIndex;
+        });
     };
 
     const handleTextChange = (index: number, text: string) => {
@@ -78,7 +87,9 @@ const CompositionArea: React.FC<CompositionAreaProps> = ({ onBack, onNext, curre
         setTweets((prev) => prev.map((tweet) => (tweet.id === tweetId ? { ...tweet, poll: undefined } : tweet)));
     };
 
-    const canProceed = tweets.every(t => (t.text.length > 0 && t.text.length <= MAX_CHARS) || t.media.length > 0 || t.poll);
+    const hasPublishableTweet = tweets.some((tweet) => tweet.text.trim().length > 0 || tweet.media.length > 0 || Boolean(tweet.poll));
+    const hasInvalidLength = tweets.some((tweet) => tweet.text.length > MAX_CHARS);
+    const canProceed = hasPublishableTweet && !hasInvalidLength;
     return (
         <div
             className="w-full max-w-xl h-[85%] bg-[#101214] border border-white/10 rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col"
