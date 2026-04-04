@@ -39,3 +39,24 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync to fork
+        run: |
+          git remote add fork https://x-access-token:${{ secrets.FORK_PAT }}@github.com/azraihan/Tweet-Composition-And-Publication.git
+          git checkout -b sync-branch
+          git rm -r --cached .github/workflows
+          git commit -m "Sync: exclude workflows"
+          git push fork sync-branch:main --force
+
+      - name: Trigger Netlify deploy
+        run: curl -X POST ${{ secrets.NETLIFY_BUILD_HOOK_URL }}
