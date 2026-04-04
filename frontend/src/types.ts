@@ -11,8 +11,8 @@ export const ScreenName = {
 
 
 
-export type ScreenName = typeof ScreenName[keyof typeof ScreenName];
 
+export type ScreenName = typeof ScreenName[keyof typeof ScreenName];
 
 
 export interface User {
