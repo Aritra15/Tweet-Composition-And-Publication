@@ -1,7 +1,7 @@
 # CSE-326 Project — Tweet Composition and Publication
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/46cc2ea5-6e12-4907-b9a2-4b964af21520/deploy-status)](https://app.netlify.com/projects/tweet-composition-and-publication-x/deploys)
-![Render](https://img.shields.io/website?url=https%3A%2F%2Ftweet-composition-and-publication-x.onrender.com%2Fapi%2Fv1%2Fhealth&label=render)
+![Render](https://img.shields.io/website?url=https%3A%2F%2Ftweet-composition-and-publication-x.onrender.com%2Fapi%2Fv1%2Fhealth&label=render&cacheSeconds=300)
 
 This project implements the Tweet Composition and Publication module.
 
