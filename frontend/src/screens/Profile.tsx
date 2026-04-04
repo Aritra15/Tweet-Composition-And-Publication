@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, Camera, PenSquare, Rows3 } from 'lucide-react';
+import { CalendarDays, Camera, PenSquare, Rows3 } from 'lucide-react';
 import { Avatar } from '../components/Shared';
 import Feed from '../components/Feed.tsx';
 import { ScreenName, type FeedThread, type User } from '../types';
@@ -70,14 +70,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </div>
               </div>
             </div>
-
-            <button
-              title="Back to home"
-              onClick={() => onNavigate(ScreenName.HOME)}
-              className="shrink-0 rounded-full border border-white/15 bg-black/20 p-2 text-white/80 hover:text-white hover:bg-black/35 transition-colors"
-            >
-              <ArrowLeft size={18} />
-            </button>
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2">

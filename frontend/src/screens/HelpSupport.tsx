@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, LifeBuoy, MessageSquareWarning, Send, ShieldCheck } from 'lucide-react';
+import { LifeBuoy, MessageSquareWarning, Send, ShieldCheck } from 'lucide-react';
 import { Toast } from '../components/Shared';
-import { ScreenName, type User } from '../types';
+import { type User } from '../types';
 
 interface HelpSupportScreenProps {
   currentUser: User;
-  onNavigate: (screen: ScreenName) => void;
 }
 
 type LocalTicket = {
@@ -22,7 +21,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000
 const FAQ_ITEMS = [
   {
     question: 'How do I post a thread?',
-    answer: 'Open Compose, add multiple tweet blocks using Add to thread, then publish. The app groups them in feed as one conversation.',
+    answer: 'Open Compose, add multiple tweet blocks using Add to thread, then publish.',
   },
   {
     question: 'Why is my media upload failing?',
@@ -34,7 +33,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUser, onNavigate }) => {
+export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUser }) => {
   const [category, setCategory] = useState('Bug');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -111,24 +110,14 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUse
   };
 
   return (
-    <div className="rounded-xl mb-3 bg-[#1a1d21] border border-white/10 relative overflow-hidden">
+    <div className="rounded-xl bg-[#1a1d21] border border-white/10 relative overflow-hidden">
       <section className="px-5 py-5 border-b border-white/10 bg-[linear-gradient(160deg,#1b1f26_0%,#11151b_100%)]">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="inline-flex items-center gap-2 text-cyan-300 text-xs font-semibold uppercase tracking-[0.12em]">
-              <LifeBuoy size={14} /> Help Center
-            </div>
-            <h2 className="mt-2 text-2xl font-bold text-white">Help & Support</h2>
-            <p className="mt-1 text-sm text-white/70">Ask questions, report issues, and track your submitted requests.</p>
+        <div>
+          <div className="inline-flex items-center gap-2 text-cyan-300 text-xs font-semibold uppercase tracking-[0.12em]">
+            <LifeBuoy size={14} /> Help Center
           </div>
-
-          <button
-            title="Back"
-            onClick={() => onNavigate(ScreenName.HOME)}
-            className="shrink-0 rounded-full border border-white/15 bg-black/20 p-2 text-white/80 hover:text-white hover:bg-black/35 transition-colors"
-          >
-            <ArrowLeft size={18} />
-          </button>
+          <h2 className="mt-2 text-2xl font-bold text-white">Help & Support</h2>
+          <p className="mt-1 text-sm text-white/70">Ask questions, report issues, and track your submitted requests.</p>
         </div>
       </section>
 

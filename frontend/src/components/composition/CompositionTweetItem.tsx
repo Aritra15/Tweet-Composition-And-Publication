@@ -10,11 +10,11 @@ interface CompositionTweetItemProps {
     currentUser: User;
     activeTweetIndex: number;
     audience: string;
-    mediaActionRef: React.RefObject<HTMLDivElement>;
-    emojiActionRef: React.RefObject<HTMLDivElement>;
-    pollActionRef: React.RefObject<HTMLDivElement>;
-    aiActionRef: React.RefObject<HTMLDivElement>;
-    audienceActionRef: React.RefObject<HTMLButtonElement>;
+    mediaActionRef: React.RefObject<HTMLDivElement | null>;
+    emojiActionRef: React.RefObject<HTMLDivElement | null>;
+    pollActionRef: React.RefObject<HTMLDivElement | null>;
+    aiActionRef: React.RefObject<HTMLDivElement | null>;
+    audienceActionRef: React.RefObject<HTMLButtonElement | null>;
     setActiveTweetIndex: React.Dispatch<React.SetStateAction<number>>;
     setActiveSheet: React.Dispatch<React.SetStateAction<'media' | 'emoji' | 'poll' | 'ai' | 'audience' | null>>;
     setTextareaRef: (index: number, el: HTMLTextAreaElement | null) => void;
