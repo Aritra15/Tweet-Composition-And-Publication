@@ -10,24 +10,44 @@ type FeedComment = {
   userId: string;
   userName: string;
   userHandle: string;
+  profilePictureUrl: string | null;
   content: string;
   createdAt: string;
 };
 
 type TweetEngagement = {
   likesCount: number;
-  likedUserIds: string[];
+  commentsCount: number;
+  likedByMe: boolean;
   comments: FeedComment[];
 };
 
 type EngagementState = Record<string, TweetEngagement>;
 
-const ENGAGEMENT_STORAGE_KEY = 'tweet_engagement_local_v1';
+type EngagementSummaryResponse = {
+  tweet_id: string;
+  likes_count: number;
+  comments_count: number;
+  liked_by_user: boolean;
+};
+
+type CommentApiResponse = {
+  id: string;
+  tweet_id: string;
+  user_id: string;
+  user_name: string;
+  user_handle: string;
+  profile_picture_url: string | null;
+  content: string;
+  created_at: string;
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
 interface FeedProps {
-  tweetItems: FeedThread[],
-  currentUser: User,
-  isThreadOpen: boolean,
+  tweetItems: FeedThread[];
+  currentUser: User;
+  isThreadOpen: boolean;
   headerRef: React.RefObject<HTMLElement | null>;
   handleOpenThread: (twts: FeedThread) => void;
   onDeleteItem: (item: FeedThread) => Promise<void>;
@@ -53,90 +73,227 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
     setLightboxMedia(null);
   };
 
-  useEffect(() => {
-    const raw = localStorage.getItem(ENGAGEMENT_STORAGE_KEY);
-    if (!raw) return;
-
-    try {
-      const parsed = JSON.parse(raw) as EngagementState;
-      if (parsed && typeof parsed === 'object') {
-        setEngagementState(parsed);
-      }
-    } catch {
-      setEngagementState({});
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(ENGAGEMENT_STORAGE_KEY, JSON.stringify(engagementState));
-  }, [engagementState]);
+  const toFeedComment = (comment: CommentApiResponse): FeedComment => ({
+    id: comment.id,
+    userId: comment.user_id,
+    userName: comment.user_name,
+    userHandle: comment.user_handle,
+    profilePictureUrl: comment.profile_picture_url,
+    content: comment.content,
+    createdAt: comment.created_at,
+  });
 
   const getTweetEngagement = (tweet: FeedTweet): TweetEngagement => {
     return engagementState[tweet.id] ?? {
       likesCount: tweet.likes,
-      likedUserIds: [],
+      commentsCount: tweet.replies,
+      likedByMe: false,
       comments: [],
     };
   };
 
-  const toggleLike = (tweet: FeedTweet) => {
+  const refreshTweetSummary = async (tweetId: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/${tweetId}/summary?user_id=${currentUser.id}`);
+    if (!response.ok) {
+      throw new Error('Failed to load engagement summary');
+    }
+
+    const summary: EngagementSummaryResponse = await response.json();
+
     setEngagementState((prev) => {
-      const current = prev[tweet.id] ?? {
-        likesCount: tweet.likes,
-        likedUserIds: [],
-        comments: [],
-      };
-
-      const alreadyLiked = current.likedUserIds.includes(currentUser.id);
-      const nextLikedUserIds = alreadyLiked
-        ? current.likedUserIds.filter((id) => id !== currentUser.id)
-        : [...current.likedUserIds, currentUser.id];
-
+      const current = prev[tweetId];
       return {
         ...prev,
-        [tweet.id]: {
-          ...current,
-          likedUserIds: nextLikedUserIds,
-          likesCount: Math.max(0, current.likesCount + (alreadyLiked ? -1 : 1)),
+        [tweetId]: {
+          likesCount: summary.likes_count,
+          commentsCount: summary.comments_count,
+          likedByMe: summary.liked_by_user,
+          comments: current?.comments ?? [],
         },
       };
     });
   };
 
-  const submitComment = () => {
-    if (!activeCommentsTweet || !commentDraft.trim()) {
-      return;
+  const refreshTweetComments = async (tweet: FeedTweet) => {
+    const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/${tweet.id}/comments`);
+    if (!response.ok) {
+      throw new Error('Failed to load comments');
     }
 
-    const content = commentDraft.trim();
-    const tweet = activeCommentsTweet;
-
+    const comments = (await response.json()) as CommentApiResponse[];
     setEngagementState((prev) => {
       const current = prev[tweet.id] ?? {
         likesCount: tweet.likes,
-        likedUserIds: [],
+        commentsCount: tweet.replies,
+        likedByMe: false,
         comments: [],
-      };
-
-      const nextComment: FeedComment = {
-        id: crypto.randomUUID(),
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userHandle: currentUser.handle,
-        content,
-        createdAt: new Date().toISOString(),
       };
 
       return {
         ...prev,
         [tweet.id]: {
           ...current,
-          comments: [nextComment, ...current.comments],
+          commentsCount: comments.length,
+          comments: comments.map(toFeedComment),
         },
       };
     });
+  };
 
-    setCommentDraft('');
+  useEffect(() => {
+    const tweets = tweetItems.flatMap((item) => item.tweets);
+    if (!tweets.length) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSummaries = async () => {
+      const summaries = await Promise.all(
+        tweets.map(async (tweet) => {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/${tweet.id}/summary?user_id=${currentUser.id}`);
+            if (!response.ok) {
+              return null;
+            }
+
+            const summary = (await response.json()) as EngagementSummaryResponse;
+            return { tweetId: tweet.id, summary };
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setEngagementState((prev) => {
+        const next = { ...prev };
+
+        for (const item of summaries) {
+          if (!item) continue;
+
+          const current = next[item.tweetId];
+          next[item.tweetId] = {
+            likesCount: item.summary.likes_count,
+            commentsCount: item.summary.comments_count,
+            likedByMe: item.summary.liked_by_user,
+            comments: current?.comments ?? [],
+          };
+        }
+
+        return next;
+      });
+    };
+
+    void loadSummaries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tweetItems, currentUser.id]);
+
+  const toggleLike = async (tweet: FeedTweet) => {
+    const current = getTweetEngagement(tweet);
+    const optimisticLiked = !current.likedByMe;
+
+    setEngagementState((prev) => ({
+      ...prev,
+      [tweet.id]: {
+        ...current,
+        likedByMe: optimisticLiked,
+        likesCount: Math.max(0, current.likesCount + (optimisticLiked ? 1 : -1)),
+      },
+    }));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/${tweet.id}/likes${optimisticLiked ? '' : `?user_id=${currentUser.id}`}`, {
+        method: optimisticLiked ? 'POST' : 'DELETE',
+        headers: optimisticLiked ? { 'Content-Type': 'application/json' } : undefined,
+        body: optimisticLiked ? JSON.stringify({ user_id: currentUser.id }) : undefined,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update like');
+      }
+
+      const summary: EngagementSummaryResponse = await response.json();
+
+      setEngagementState((prev) => ({
+        ...prev,
+        [tweet.id]: {
+          ...prev[tweet.id],
+          likesCount: summary.likes_count,
+          commentsCount: summary.comments_count,
+          likedByMe: summary.liked_by_user,
+          comments: prev[tweet.id]?.comments ?? [],
+        },
+      }));
+    } catch {
+      await refreshTweetSummary(tweet.id);
+    }
+  };
+
+  const openComments = async (tweet: FeedTweet) => {
+    setActiveCommentsTweet(tweet);
+
+    try {
+      await refreshTweetComments(tweet);
+      await refreshTweetSummary(tweet.id);
+    } catch {
+      // Keep sheet open even when fetch fails.
+    }
+  };
+
+  const submitComment = async () => {
+    if (!activeCommentsTweet || !commentDraft.trim()) {
+      return;
+    }
+
+    const tweet = activeCommentsTweet;
+    const content = commentDraft.trim();
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/engagement/tweets/${tweet.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit comment');
+      }
+
+      const created = toFeedComment((await response.json()) as CommentApiResponse);
+      setEngagementState((prev) => {
+        const current = prev[tweet.id] ?? {
+          likesCount: tweet.likes,
+          commentsCount: tweet.replies,
+          likedByMe: false,
+          comments: [],
+        };
+
+        const nextComments = [created, ...current.comments];
+        return {
+          ...prev,
+          [tweet.id]: {
+            ...current,
+            commentsCount: nextComments.length,
+            comments: nextComments,
+          },
+        };
+      });
+
+      setCommentDraft('');
+      await refreshTweetSummary(tweet.id);
+    } catch {
+      // User can retry when API fails.
+    }
   };
 
   const getPollBarWidth = (votesCount: number, totalVotes: number): string => {
@@ -331,7 +488,6 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                       {tweet.media.length > 0 && (
                         <div className="mb-3 overflow-x-auto flex gap-2 py-1">
                           {tweet.media.map((media: FeedMedia, idx: number) => {
-                            // const isVideo = isVideoUrl(url);
                             const single = tweet.media.length === 1;
 
                             if (media.type === 'video') {
@@ -387,16 +543,13 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
                                   className={`w-full text-left text-xs text-app-text ${canSelect && !hasVoted ? 'cursor-pointer' : 'cursor-default'}`}
                                 >
                                   {canSelect && !hasVoted ? (
-                                    // Selectable — radio button, no count or bar
                                     <div className="flex items-center justify-between py-1">
                                       <span className="truncate pr-2">{option.text}</span>
-                                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-app-peach bg-app-peach' : 'border-app-muted'
-                                        }`}>
+                                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-app-peach bg-app-peach' : 'border-app-muted'}`}>
                                         {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                       </div>
                                     </div>
                                   ) : (
-                                    // After voting or own tweet — show bar and count, highlight selected
                                     <>
                                       <div className="flex items-center justify-between mb-1">
                                         <span className={`truncate pr-2 ${isSelected ? 'text-app-peach font-semibold' : ''}`}>
@@ -418,16 +571,16 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
 
                       <TweetActions
                         likes={getTweetEngagement(tweet).likesCount}
-                        replies={getTweetEngagement(tweet).comments.length > 0 ? getTweetEngagement(tweet).comments.length : tweet.replies}
+                        replies={getTweetEngagement(tweet).commentsCount}
                         reposts={tweet.reposts}
-                        likedByMe={getTweetEngagement(tweet).likedUserIds.includes(currentUser.id)}
-                        onToggleLike={() => toggleLike(tweet)}
-                        onOpenComments={() => setActiveCommentsTweet(tweet)}
+                        likedByMe={getTweetEngagement(tweet).likedByMe}
+                        onToggleLike={() => void toggleLike(tweet)}
+                        onOpenComments={() => void openComments(tweet)}
                       />
                     </div>
                   </div>
                 </article>
-              )
+              );
             })}
 
             {!isThreadOpen && item.tweets.length > 2 && (
@@ -465,7 +618,7 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
             <div className="mt-2 flex justify-end">
               <button
                 type="button"
-                onClick={submitComment}
+                onClick={() => void submitComment()}
                 className="rounded-full bg-app-peach px-4 py-1.5 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
               >
                 Comment
@@ -501,6 +654,6 @@ const Feed: React.FC<FeedProps> = ({ tweetItems, currentUser, isThreadOpen, head
       />
     </div>
   );
-}
+};
 
 export default Feed;

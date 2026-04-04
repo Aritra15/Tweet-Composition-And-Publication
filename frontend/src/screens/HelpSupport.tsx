@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, LifeBuoy, MessageSquareWarning, Send, ShieldCheck } from 'lucide-react';
 import { Toast } from '../components/Shared';
 import { ScreenName, type User } from '../types';
@@ -12,12 +12,12 @@ type LocalTicket = {
   id: string;
   category: string;
   subject: string;
-  message: string;
-  status: 'open' | 'in_progress' | 'resolved';
-  createdAt: string;
+  description: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  created_at: string;
 };
 
-const SUPPORT_STORAGE_KEY = 'support_tickets_local_v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
 const FAQ_ITEMS = [
   {
@@ -34,49 +34,80 @@ const FAQ_ITEMS = [
   },
 ];
 
-const loadTickets = (): LocalTicket[] => {
-  const raw = localStorage.getItem(SUPPORT_STORAGE_KEY);
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw) as LocalTicket[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
 export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUser, onNavigate }) => {
   const [category, setCategory] = useState('Bug');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const [tickets, setTickets] = useState<LocalTicket[]>(loadTickets);
+  const [tickets, setTickets] = useState<LocalTicket[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const openTickets = useMemo(() => tickets.filter((ticket) => ticket.status !== 'resolved'), [tickets]);
 
-  const submitTicket = () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTickets = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/support/tickets/user/${currentUser.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to load support tickets');
+        }
+
+        const data = (await response.json()) as LocalTicket[];
+        if (!cancelled) {
+          setTickets(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setToast('Unable to fetch tickets right now');
+        }
+      }
+    };
+
+    void loadTickets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser.id]);
+
+  const submitTicket = async () => {
     if (!subject.trim() || !message.trim()) {
       setToast('Subject and message are required');
       return;
     }
 
-    const nextTicket: LocalTicket = {
-      id: crypto.randomUUID(),
-      category,
-      subject: subject.trim(),
-      message: message.trim(),
-      status: 'open',
-      createdAt: new Date().toISOString(),
-    };
+    setIsSubmitting(true);
 
-    const nextTickets = [nextTicket, ...tickets];
-    setTickets(nextTickets);
-    localStorage.setItem(SUPPORT_STORAGE_KEY, JSON.stringify(nextTickets));
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/support/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          category,
+          subject: subject.trim(),
+          description: message.trim(),
+          priority: category === 'Security' ? 'high' : 'normal',
+        }),
+      });
 
-    setSubject('');
-    setMessage('');
-    setToast('Support ticket submitted');
+      if (!response.ok) {
+        throw new Error('Failed to submit ticket');
+      }
+
+      const created = (await response.json()) as LocalTicket;
+      setTickets((prev) => [created, ...prev]);
+
+      setSubject('');
+      setMessage('');
+      setToast('Support ticket submitted');
+    } catch {
+      setToast('Failed to submit ticket. Try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -160,9 +191,10 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUse
 
             <button
               onClick={submitTicket}
+              disabled={isSubmitting}
               className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-app-peach px-4 py-2 text-sm font-semibold text-[#111315] hover:brightness-110 transition"
             >
-              <Send size={14} /> Submit Ticket
+              <Send size={14} /> {isSubmitting ? 'Submitting...' : 'Submit Ticket'}
             </button>
           </div>
 
@@ -181,7 +213,7 @@ export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUse
                     <p className="text-sm font-semibold text-white truncate">{ticket.subject}</p>
                     <span className="text-[10px] uppercase tracking-[0.08em] text-amber-300">{ticket.status}</span>
                   </div>
-                  <p className="mt-1 text-xs text-white/60 line-clamp-2">{ticket.message}</p>
+                  <p className="mt-1 text-xs text-white/60 line-clamp-2">{ticket.description}</p>
                   <p className="mt-1 text-[11px] text-white/45 inline-flex items-center gap-1">
                     <MessageSquareWarning size={12} /> {ticket.category}
                   </p>
