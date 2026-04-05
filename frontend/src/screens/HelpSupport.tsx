@@ -21,7 +21,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000
 const FAQ_ITEMS = [
   {
     question: 'How do I post a thread?',
-    answer: 'Open Compose, add multiple tweet blocks using Add to thread, then publish.',
+    answer: 'Open Compose, add multiple tweet blocks using Add to thread button, then publish.',
   },
   {
     question: 'Why is my media upload failing?',
@@ -31,7 +31,6 @@ const FAQ_ITEMS = [
     question: 'How can I delete a post?',
     answer: 'Open the post menu from the three-dot action on your own post and choose Delete.',
   },
-  
 ];
 
 export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUser }) => {
