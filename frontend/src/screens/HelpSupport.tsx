@@ -31,6 +31,7 @@ const FAQ_ITEMS = [
     question: 'How can I delete a post?',
     answer: 'Open the post menu from the three-dot action on your own post and choose Delete.',
   },
+  
 ];
 
 export const HelpSupportScreen: React.FC<HelpSupportScreenProps> = ({ currentUser }) => {
