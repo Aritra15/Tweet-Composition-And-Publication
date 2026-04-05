@@ -3,7 +3,7 @@
 This backend is a base scaffold for the Tweet Composition and Publication module.
 
 ## Folder Layout
-
+```
 backend/
 |- app/
 |  |- api/v1/endpoints/
@@ -17,7 +17,7 @@ backend/
 |- tests/
 |- requirements.txt
 |- .env.example
-
+```
 ## Quick Start
 
 1. Create and activate a virtual environment.
