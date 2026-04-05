@@ -34,7 +34,7 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
         avatar: user.avatar,
       },
       text: tweet.text,
-      time: 'now',
+      time: formatTweetAge(tweet.created_at ?? new Date().toISOString()),
       likes: 0,
       replies: 0,
       reposts: 0,
@@ -56,8 +56,16 @@ const mapThreadToFeedItem = (thread: Thread, user: User): FeedThread => {
   };
 };
 
+const parseCreatedAtToMillis = (createdAt: string): number => {
+  const trimmed = createdAt.trim();
+  const normalized = trimmed.includes(' ') ? trimmed.replace(' ', 'T') : trimmed;
+  const hasTimezone = /(Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  const isoTimestamp = hasTimezone ? normalized : `${normalized}Z`;
+  return new Date(isoTimestamp).getTime();
+};
+
 const formatTweetAge = (createdAt: string): string => {
-  const createdTime = new Date(createdAt).getTime();
+  const createdTime = parseCreatedAtToMillis(createdAt);
 
   if (Number.isNaN(createdTime)) {
     return 'now';

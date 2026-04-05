@@ -80,7 +80,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
         throw new Error(await parseApiError(tweetResponse, 'Failed to publish tweet'));
       }
 
-      const createdTweet: { id: string } = await tweetResponse.json();
+      const createdTweet: { id: string; created_at: string } = await tweetResponse.json();
       createdTweetId = createdTweet.id;
 
       if (normalizedMedia.length > 0) {
@@ -140,6 +140,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
 
       return {
         tweetId: createdTweet.id,
+        createdAt: createdTweet.created_at,
         poll: persistedPoll,
       };
     } catch (error) {
@@ -191,7 +192,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
   // };
 
   const publishThreadTransactional = async (): Promise<Thread> => {
-    const createdTweets: Array<{ id: string; draft: TweetDraft; poll?: Poll }> = [];
+    const createdTweets: Array<{ id: string; createdAt: string; draft: TweetDraft; poll?: Poll }> = [];
     let persistedThreadId: string | undefined;
 
     try {
@@ -199,6 +200,7 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
         const createdTweet = await publishTweet(tweet.text.trim(), tweet.media, tweet.poll);
         createdTweets.push({
           id: createdTweet.tweetId,
+          createdAt: createdTweet.createdAt,
           draft: tweet,
           poll: createdTweet.poll,
         });
@@ -224,9 +226,10 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
 
       return {
         id: persistedThreadId,
-        tweets: createdTweets.map(({ id, draft, poll }) => ({
+        tweets: createdTweets.map(({ id, createdAt, draft, poll }) => ({
           ...draft,
           id,
+          created_at: createdAt,
           poll: poll ?? draft.poll,
         })),
       };
@@ -317,90 +320,91 @@ export const PublishScreen: React.FC<PublishProps> = ({ thread, currentUser, onB
                   const showAuthorMeta = !isThreadDraft || index === 0;
 
                   return (
-                  <article key={tweet.id} className={"p-4 relative border-y border-white/10"}>
-                    <div className="flex gap-3">
-                      <div className="shrink-0 z-10 w-10 flex justify-center">
-                        {showAuthorMeta ? (
-                          <Avatar src={currentUser.avatar} alt={currentUser.name} />
-                        ) : (
-                          <span className="mt-3 h-2.5 w-2.5 rounded-full bg-app-peach ring-2 ring-[#101214]" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {showAuthorMeta ? (
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="font-bold text-app-text truncate">{currentUser.name}</span>
-                            <span className="text-app-muted truncate">@{currentUser.handle}</span>
-                            <span className="text-app-muted text-sm">· 0h</span>
-                          </div>
-                        ) : (
-                          <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-app-muted">
-                            Post {index + 1} of {publishableTweets.length}
-                          </div>
-                        )}
-                        <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">
-                          {tweet.text}
-                        </p>
+                    <article key={tweet.id} className={"p-4 relative border-y border-white/10"}>
+                      <div className="flex gap-3">
+                        <div className="shrink-0 z-10 w-10 flex justify-center">
+                          {showAuthorMeta ? (
+                            <Avatar src={currentUser.avatar} alt={currentUser.name} />
+                          ) : (
+                            <span className="mt-3 h-2.5 w-2.5 rounded-full bg-app-peach ring-2 ring-[#101214]" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {showAuthorMeta ? (
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="font-bold text-app-text truncate">{currentUser.name}</span>
+                              <span className="text-app-muted truncate">@{currentUser.handle}</span>
+                              <span className="text-app-muted text-sm">· 0h</span>
+                            </div>
+                          ) : (
+                            <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-app-muted">
+                              Post {index + 1} of {publishableTweets.length}
+                            </div>
+                          )}
+                          <p className="text-app-text text-[15px] leading-relaxed whitespace-pre-wrap">
+                            {tweet.text}
+                          </p>
 
-                        {tweet.media.length > 0 && (
-                          <div className="mb-3 overflow-x-auto flex gap-2 py-1">
-                            {tweet.media.map((media: TweetMedia, idx: number) => {
-                              const isVideo = media.url.startsWith('data:video/');
-                              const single = tweet.media.length === 1;
+                          {tweet.media.length > 0 && (
+                            <div className="mb-3 overflow-x-auto flex gap-2 py-1">
+                              {tweet.media.map((media: TweetMedia, idx: number) => {
+                                const isVideo = media.url.startsWith('data:video/');
+                                const single = tweet.media.length === 1;
 
-                              if (isVideo) {
-                                return <VideoPlayer key={idx} url={media.url} single={single} />;
-                              }
+                                if (isVideo) {
+                                  return <VideoPlayer key={idx} url={media.url} single={single} />;
+                                }
 
-                              return (
-                                <div
-                                  key={idx}
-                                  className={`flex-shrink-0 relative ${single ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden`}
-                                >
-                                  <img
-                                    src={media.url}
-                                    alt={`Tweet media ${idx + 1}`}
-                                    className={`${single ? "block max-h-[360px] w-auto h-auto" : "h-full w-full"} object-contain`}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {tweet.poll && (
-                          <div className="w-[85%] mb-3 rounded-xl border border-app-border bg-app-card/20 p-3">
-                            <p className="text-sm font-semibold text-app-text mb-2">{tweet.poll.question}</p>
-                            <div className="space-y-2">
-                              {tweet.poll.options.map((option) => {
                                 return (
-                                  <button
-                                    key={option.id}
-                                    type="button"
-                                    disabled={true}
-                                    className={`w-full text-left text-xs text-app-text`}
+                                  <div
+                                    key={idx}
+                                    className={`flex-shrink-0 relative ${single ? 'max-h-[360px] max-w-[90%]' : 'h-[200px]'} rounded-2xl overflow-hidden`}
                                   >
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="truncate pr-2">
-                                        {option.text}
-                                      </span>
-                                      <span className="text-app-muted whitespace-nowrap">0</span>
-                                    </div>
-                                    <div className="h-2 rounded-full bg-app-border overflow-hidden">
-                                      <div className="h-full rounded-full bg-app-muted/70 w-0" />
-                                    </div>
-                                  </button>
+                                    <img
+                                      src={media.url}
+                                      alt={`Tweet media ${idx + 1}`}
+                                      className={`${single ? "block max-h-[360px] w-auto h-auto" : "h-full w-full"} object-contain`}
+                                    />
+                                  </div>
                                 );
                               })}
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        <TweetActions likes={0} replies={0} reposts={0} />
+                          {tweet.poll && (
+                            <div className="w-[85%] mb-3 rounded-xl border border-app-border bg-app-card/20 p-3">
+                              <p className="text-sm font-semibold text-app-text mb-2">{tweet.poll.question}</p>
+                              <div className="space-y-2">
+                                {tweet.poll.options.map((option) => {
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      disabled={true}
+                                      className={`w-full text-left text-xs text-app-text`}
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="truncate pr-2">
+                                          {option.text}
+                                        </span>
+                                        <span className="text-app-muted whitespace-nowrap">0</span>
+                                      </div>
+                                      <div className="h-2 rounded-full bg-app-border overflow-hidden">
+                                        <div className="h-full rounded-full bg-app-muted/70 w-0" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          <TweetActions likes={0} replies={0} reposts={0} />
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                )})}
+                    </article>
+                  )
+                })}
               </div>
             </div>
           </div>

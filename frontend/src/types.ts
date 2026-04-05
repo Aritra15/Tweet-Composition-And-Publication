@@ -46,6 +46,7 @@ export interface TweetDraft {
   text: string;
   media: TweetMedia[];
   poll?: Poll;
+  created_at?: string;
 }
 
 export interface Thread {

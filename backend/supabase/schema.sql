@@ -11,7 +11,7 @@ create table if not exists users (
   profile_picture_url text,
   email varchar(100) unique not null,
   password_hash text not null,
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 -- TWEETS TABLE
@@ -19,7 +19,7 @@ create table if not exists tweets (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references users(id) on delete cascade,
   text varchar(280),
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 -- -- THREADS TABLE
@@ -27,8 +27,8 @@ create table if not exists tweets (
 create table if not exists threads (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
-  created_at timestamp default now(),
-  updated_at timestamp default now(),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
   status varchar(20) not null default 'published' check (status in ('draft', 'published', 'archived'))
 );
 
@@ -38,7 +38,7 @@ create table if not exists thread_tweets (
   thread_id uuid not null references threads(id) on delete cascade,
   tweet_id uuid not null references tweets(id) on delete cascade,
   position integer not null check (position >= 1),
-  created_at timestamp default now(),
+  created_at timestamptz default now(),
   primary key (thread_id, position),
   unique (tweet_id),
   unique (thread_id, tweet_id)
@@ -50,7 +50,7 @@ create table if not exists polls (
   id uuid primary key default gen_random_uuid(),
   tweet_id uuid not null unique references tweets(id) on delete cascade,
   question varchar(280) not null,
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 -- POLL_OPTIONS TABLE
@@ -61,7 +61,7 @@ create table if not exists poll_options (
   text varchar(100) not null,
   position integer not null check (position >= 1),
   votes_count integer not null default 0 check (votes_count >= 0),
-  created_at timestamp default now(),
+  created_at timestamptz default now(),
   unique (poll_id, position)
 );
 
@@ -72,7 +72,7 @@ create table if not exists poll_votes (
   poll_id uuid not null references polls(id) on delete cascade,
   option_id uuid not null references poll_options(id) on delete cascade,
   user_id uuid not null references users(id) on delete cascade,
-  created_at timestamp default now(),
+  created_at timestamptz default now(),
   unique (poll_id, user_id)
 );
 
@@ -84,7 +84,7 @@ create table if not exists media (
   type varchar(10), -- 'image' or 'video'
   source varchar(10), -- 'upload' or 'ai'
   alt_text text,
-  created_at timestamp default now()
+  created_at timestamptz default now()
 );
 
 create index if not exists idx_tweets_user_id on tweets(user_id);
