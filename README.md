@@ -7,7 +7,7 @@ This project implements the Tweet Composition and Publication module.
 
 - **Frontend:** React + TypeScript + Vite — deployed on [Netlify](https://tweet-composition-and-publication-x.netlify.app)
 - **Backend:** FastAPI — deployed on [Render](https://tweet-composition-and-publication-x.onrender.com)
-- **Database:** Supabase
+- **Database:** PostgreSQL hosted on Supabase
 
 ## Workspace Structure
 
@@ -122,7 +122,8 @@ VITE_API_BASE_URL=http://localhost:8000
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
+source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1 or
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```

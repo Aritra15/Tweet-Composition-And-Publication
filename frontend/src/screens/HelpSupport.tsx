@@ -21,7 +21,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000
 const FAQ_ITEMS = [
   {
     question: 'How do I post a thread?',
-    answer: 'Open Compose, add multiple tweet blocks using Add to thread, then publish.',
+    answer: 'Open Compose, add multiple tweet blocks using Add to thread button, then publish.',
   },
   {
     question: 'Why is my media upload failing?',
