@@ -274,16 +274,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           </p>
         </div>
       </motion.div>
-
-      {/* Footer */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6 }}
-        className="text-app-muted text-xs mt-8 text-center"
-      >
-        CSE-326 · Tweet Composition &amp; Publication
-      </motion.p>
     </div>
   );
 };
