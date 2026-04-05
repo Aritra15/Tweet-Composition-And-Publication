@@ -7,7 +7,7 @@ This project implements the Tweet Composition and Publication module.
 
 - **Frontend:** React + TypeScript + Vite — deployed on [Netlify](https://tweet-composition-and-publication-x.netlify.app)
 - **Backend:** FastAPI — deployed on [Render](https://tweet-composition-and-publication-x.onrender.com)
-- **Database:** Supabase
+- **Database:** PostgreSQL hosted on Supabase
 
 ## Workspace Structure
 
