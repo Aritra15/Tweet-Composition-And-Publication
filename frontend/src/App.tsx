@@ -220,6 +220,10 @@ function App() {
   const [hasMoreFetchedTweets, setHasMoreFetchedTweets] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  // Track pagination using offset progression, not tweet counts
+  // This is necessary because the backend expands threads, returning more tweets than requested
+  const [nextOffset, setNextOffset] = useState(0);
+
   const headerRef = useRef<HTMLElement | null>(null);
   const mainPanelRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -296,8 +300,16 @@ function App() {
       }
 
       const tweets: ApiTweetResponse[] = await response.json();
-      setFetchedFeedItems(mapApiTweetsToFeedThreads(tweets));
-      setHasMoreFetchedTweets(tweets.length === FEED_PAGE_SIZE);
+      const threads = mapApiTweetsToFeedThreads(tweets);
+      setFetchedFeedItems(threads);
+
+      // If we got tweets, assume there might be more. Set the next offset to the page size.
+      // We determine end-of-feed only when we get fewer tweets than a full page (after expansion),
+      // which means the backend returned fewer base tweets than requested.
+      setNextOffset(FEED_PAGE_SIZE);
+
+      // For initial load, we have more tweets unless the response is empty
+      setHasMoreFetchedTweets(tweets.length > 0);
       setTweetLoading(false);
     };
 
@@ -312,9 +324,9 @@ function App() {
     setIsLoadingMoreTweets(true);
 
     try {
-      const currentTweetCount = fetchedFeedItems.reduce((count, thread) => count + thread.tweets.length, 0);
+      // Use nextOffset which tracks the backend's offset progression
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/tweets?limit=${FEED_PAGE_SIZE}&offset=${currentTweetCount}&viewer_user_id=${currentUser.id}`,
+        `${API_BASE_URL}/api/v1/tweets?limit=${FEED_PAGE_SIZE}&offset=${nextOffset}&viewer_user_id=${currentUser.id}`,
       );
 
       if (!response.ok) {
@@ -322,10 +334,23 @@ function App() {
       }
 
       const tweets: ApiTweetResponse[] = await response.json();
-      const nextThreads = mapApiTweetsToFeedThreads(tweets);
 
+      // If we got 0 tweets, we've reached the end
+      if (tweets.length === 0) {
+        setHasMoreFetchedTweets(false);
+        return;
+      }
+
+      const nextThreads = mapApiTweetsToFeedThreads(tweets);
       setFetchedFeedItems((prev) => mergeFeedThreads(prev, nextThreads));
-      setHasMoreFetchedTweets(tweets.length === FEED_PAGE_SIZE);
+
+      // Always increment offset by FEED_PAGE_SIZE for the next request
+      // The backend will skip FEED_PAGE_SIZE base tweets regardless of thread expansion
+      setNextOffset((prev) => prev + FEED_PAGE_SIZE);
+
+      // Continue fetching as long as we get results. The real end-of-feed
+      // happens when the backend has exhausted all tweets (returns fewer or none).
+      setHasMoreFetchedTweets(tweets.length > 0);
     } finally {
       setIsLoadingMoreTweets(false);
     }
@@ -347,6 +372,7 @@ function App() {
     setTweetLoading(true);
     setIsLoadingMoreTweets(false);
     setHasMoreFetchedTweets(true);
+    setNextOffset(0);
     setDraftThread(null);
     setCurrentScreen(ScreenName.HOME);
   };
